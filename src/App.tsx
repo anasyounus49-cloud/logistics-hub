@@ -2,11 +2,34 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 
-const queryClient = new QueryClient();
+// Auth pages
+import LoginPage from "@/pages/auth/LoginPage";
+
+// Layout
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
+// Dashboard pages
+import DashboardRedirect from "@/pages/dashboard/DashboardRedirect";
+import SuperAdminDashboard from "@/pages/dashboard/SuperAdminDashboard";
+import PurchaseAdminDashboard from "@/pages/dashboard/PurchaseAdminDashboard";
+import SecurityDashboard from "@/pages/dashboard/SecurityDashboard";
+import OperatorDashboard from "@/pages/dashboard/OperatorDashboard";
+
+// Other pages
+import NotFound from "@/pages/NotFound";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -14,14 +37,63 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Protected routes with dashboard layout */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Dashboard redirect based on role */}
+              <Route path="/dashboard" element={<DashboardRedirect />} />
+
+              {/* Role-specific dashboards */}
+              <Route path="/dashboard/super-admin" element={<SuperAdminDashboard />} />
+              <Route path="/dashboard/purchase-admin" element={<PurchaseAdminDashboard />} />
+              <Route path="/dashboard/security" element={<SecurityDashboard />} />
+              <Route path="/dashboard/operator" element={<OperatorDashboard />} />
+
+              {/* Management routes - placeholders for now */}
+              <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
+              <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
+              <Route path="/approvals/*" element={<PlaceholderPage title="Approvals" />} />
+              <Route path="/security/*" element={<PlaceholderPage title="Security" />} />
+              <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="/activity" element={<PlaceholderPage title="Activity Log" />} />
+            </Route>
+
+            {/* Redirect root to dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
+
+// Placeholder component for routes not yet implemented
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+      <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+        <span className="text-2xl">🚧</span>
+      </div>
+      <h2 className="text-xl font-semibold mb-2">{title}</h2>
+      <p className="text-muted-foreground max-w-md">
+        This section is under development. The full implementation will include
+        data tables, forms, and complete CRUD operations.
+      </p>
+    </div>
+  );
+}
 
 export default App;
