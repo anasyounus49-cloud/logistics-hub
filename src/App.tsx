@@ -21,6 +21,7 @@ import OperatorDashboard from "@/pages/dashboard/OperatorDashboard";
 
 // Management pages
 import StaffManagementPage from "@/pages/management/StaffManagementPage";
+import DriverManagementPage from "@/pages/management/DriverManagementPage";
 
 // Other pages
 import NotFound from "@/pages/NotFound";
@@ -64,6 +65,7 @@ const App = () => (
 
               {/* Management routes */}
               <Route path="/management/staff" element={<StaffManagementPage />} />
+              <Route path="/management/drivers" element={<DriverManagementPage />} />
               <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
               <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
               <Route path="/approvals/*" element={<PlaceholderPage title="Approvals" />} />
