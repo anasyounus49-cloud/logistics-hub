@@ -19,6 +19,9 @@ import PurchaseAdminDashboard from "@/pages/dashboard/PurchaseAdminDashboard";
 import SecurityDashboard from "@/pages/dashboard/SecurityDashboard";
 import OperatorDashboard from "@/pages/dashboard/OperatorDashboard";
 
+// Management pages
+import StaffManagementPage from "@/pages/management/StaffManagementPage";
+
 // Other pages
 import NotFound from "@/pages/NotFound";
 
@@ -59,7 +62,8 @@ const App = () => (
               <Route path="/dashboard/security" element={<SecurityDashboard />} />
               <Route path="/dashboard/operator" element={<OperatorDashboard />} />
 
-              {/* Management routes - placeholders for now */}
+              {/* Management routes */}
+              <Route path="/management/staff" element={<StaffManagementPage />} />
               <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
               <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
               <Route path="/approvals/*" element={<PlaceholderPage title="Approvals" />} />
