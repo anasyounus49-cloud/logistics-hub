@@ -1,10 +1,11 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDefaultDashboard } from '@/utils/roleConfig';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 
 export default function DashboardRedirect() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -15,9 +16,11 @@ export default function DashboardRedirect() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   const dashboardPath = getDefaultDashboard(user.role);
-  return <Navigate to={dashboardPath} replace />;
+  
+  // Use key to force re-mount when user changes
+  return <Navigate to={dashboardPath} replace key={`${user.id}-${user.role}`} />;
 }
