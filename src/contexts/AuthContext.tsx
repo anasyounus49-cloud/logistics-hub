@@ -163,6 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Set loading state first to trigger UI update
+    setState((prev) => ({ ...prev, isLoading: true }));
+    
     if (!isDemoMode) {
       try {
         await authService.logout();
@@ -171,9 +174,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
+    // Clear storage
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     setIsDemoMode(false);
+    
+    // Reset state - this triggers re-render
     setState({
       user: null,
       token: null,
