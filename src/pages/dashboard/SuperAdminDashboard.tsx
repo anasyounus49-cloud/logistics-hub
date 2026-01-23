@@ -1,6 +1,8 @@
 import { StatsCard } from '@/components/dashboard/widgets/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useSuperAdminStats } from '@/hooks/useDashboardStats';
 import { 
   Users, 
   Truck, 
@@ -9,76 +11,101 @@ import {
   Route, 
   Scale,
   Activity,
-  TrendingUp,
   Clock,
   CheckCircle,
-  AlertTriangle,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
+  const { isLoading, stats, refetch } = useSuperAdminStats();
+
   return (
     <div className="space-y-6">
       {/* Welcome section */}
-      <div>
-        <h1 className="text-2xl font-bold">System Overview</h1>
-        <p className="text-muted-foreground">
-          Monitor all weighbridge operations and system metrics
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">System Overview</h1>
+          <p className="text-muted-foreground">
+            Monitor all weighbridge operations and system metrics
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Active Trips"
-          value={24}
-          icon={Route}
-          variant="primary"
-          trend={{ value: 12, isPositive: true }}
-        />
-        <StatsCard
-          title="Total Staff"
-          value={48}
-          icon={Users}
-          variant="info"
-          description="Across all departments"
-        />
-        <StatsCard
-          title="Pending Approvals"
-          value={8}
-          icon={Clock}
-          variant="warning"
-          description="Drivers & Vehicles"
-        />
-        <StatsCard
-          title="Today's Weight"
-          value="1,284 MT"
-          icon={Scale}
-          variant="success"
-          trend={{ value: 8, isPositive: true }}
-        />
+        {isLoading ? (
+          <>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="Active Trips"
+              value={stats.activeTrips}
+              icon={Route}
+              variant="primary"
+            />
+            <StatsCard
+              title="Total Staff"
+              value={stats.totalStaff}
+              icon={Users}
+              variant="info"
+              description="Across all departments"
+            />
+            <StatsCard
+              title="Pending Approvals"
+              value={stats.pendingApprovals}
+              icon={Clock}
+              variant="warning"
+              description="Drivers & Vehicles"
+            />
+            <StatsCard
+              title="Today's Weight"
+              value={`${stats.todayWeight.toLocaleString()} MT`}
+              icon={Scale}
+              variant="success"
+            />
+          </>
+        )}
       </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatsCard
-          title="Active Drivers"
-          value={32}
-          icon={Truck}
-          description="Currently approved"
-        />
-        <StatsCard
-          title="Registered Vehicles"
-          value={56}
-          icon={Car}
-          description="In the system"
-        />
-        <StatsCard
-          title="Active POs"
-          value={18}
-          icon={FileText}
-          description="Currently open"
-        />
+        {isLoading ? (
+          <>
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="Active Drivers"
+              value={stats.approvedDrivers}
+              icon={Truck}
+              description="Currently approved"
+            />
+            <StatsCard
+              title="Registered Vehicles"
+              value={stats.registeredVehicles}
+              icon={Car}
+              description="In the system"
+            />
+            <StatsCard
+              title="Active POs"
+              value={stats.activePOs}
+              icon={FileText}
+              description="Currently open"
+            />
+          </>
+        )}
       </div>
 
       {/* Charts & Activity */}
@@ -99,7 +126,7 @@ export default function SuperAdminDashboard() {
               <div className="text-center text-muted-foreground">
                 <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Weight trend chart</p>
-                <p className="text-xs">Connect to API for live data</p>
+                <p className="text-xs">Data available from API</p>
               </div>
             </div>
           </CardContent>

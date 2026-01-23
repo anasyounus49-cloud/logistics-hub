@@ -1,8 +1,12 @@
 import { StatsCard } from '@/components/dashboard/widgets/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { TripStageProgress } from '@/components/common/TripStageProgress';
+import { usePurchaseAdminStats } from '@/hooks/useDashboardStats';
+import { useApproveDriver, useRejectDriver } from '@/hooks/useDrivers';
+import { useVehicles } from '@/hooks/useVehicles';
 import { 
   FileText, 
   Package, 
@@ -12,11 +16,35 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
+import { TripStage } from '@/api/types/common.types';
 
 export default function PurchaseAdminDashboard() {
+  const { isLoading, stats, data, refetch } = usePurchaseAdminStats();
+  const approveDriverMutation = useApproveDriver();
+  const rejectDriverMutation = useRejectDriver();
+  const { approveVehicle, rejectVehicle } = useVehicles();
+
+  const handleApproveDriver = (id: number) => {
+    approveDriverMutation.mutate(id);
+  };
+
+  const handleRejectDriver = (id: number) => {
+    rejectDriverMutation.mutate(id);
+  };
+
+  const handleApproveVehicle = async (id: number) => {
+    await approveVehicle(id);
+    refetch();
+  };
+
+  const handleRejectVehicle = async (id: number) => {
+    await rejectVehicle(id);
+    refetch();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -27,38 +55,54 @@ export default function PurchaseAdminDashboard() {
             Manage purchase orders, approvals, and trip monitoring
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Create PO
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create PO
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Active POs"
-          value={12}
-          icon={FileText}
-          variant="primary"
-        />
-        <StatsCard
-          title="Pending Drivers"
-          value={5}
-          icon={Truck}
-          variant="warning"
-        />
-        <StatsCard
-          title="Pending Vehicles"
-          value={3}
-          icon={Car}
-          variant="warning"
-        />
-        <StatsCard
-          title="Active Trips"
-          value={8}
-          icon={Route}
-          variant="info"
-        />
+        {isLoading ? (
+          <>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="Active POs"
+              value={stats.activePOs}
+              icon={FileText}
+              variant="primary"
+            />
+            <StatsCard
+              title="Pending Drivers"
+              value={stats.pendingDrivers}
+              icon={Truck}
+              variant="warning"
+            />
+            <StatsCard
+              title="Pending Vehicles"
+              value={stats.pendingVehicles}
+              icon={Car}
+              variant="warning"
+            />
+            <StatsCard
+              title="Active Trips"
+              value={stats.activeTrips}
+              icon={Route}
+              variant="info"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -72,40 +116,93 @@ export default function PurchaseAdminDashboard() {
             <CardDescription>Drivers and vehicles awaiting approval</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              { type: 'Driver', name: 'John Smith', id: 'DRV-001', mobile: '+91 98765 43210' },
-              { type: 'Driver', name: 'Rajesh Kumar', id: 'DRV-002', mobile: '+91 87654 32109' },
-              { type: 'Vehicle', name: 'MH 12 AB 1234', id: 'VEH-001', weight: '12,500 kg' },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                    {item.type === 'Driver' ? (
-                      <Truck className="h-5 w-5 text-warning" />
-                    ) : (
-                      <Car className="h-5 w-5 text-warning" />
-                    )}
+            {isLoading ? (
+              [...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))
+            ) : (
+              <>
+                {data.pendingDrivers.slice(0, 3).map((driver) => (
+                  <div
+                    key={driver.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <Truck className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{driver.driver_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Driver • {driver.mobile_number}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-success hover:text-success hover:bg-success/10"
+                        onClick={() => handleApproveDriver(driver.id)}
+                        disabled={approveDriverMutation.isPending}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRejectDriver(driver.id)}
+                        disabled={rejectDriverMutation.isPending}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.id} • {item.mobile || item.weight}
-                    </p>
+                ))}
+                {data.pendingVehicles.slice(0, 2).map((vehicle) => (
+                  <div
+                    key={vehicle.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <Car className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{vehicle.registration_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Vehicle • Tare: {vehicle.manufacturer_tare_weight?.toLocaleString() || 'N/A'} kg
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-success hover:text-success hover:bg-success/10"
+                        onClick={() => handleApproveVehicle(vehicle.id)}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRejectVehicle(vehicle.id)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" className="text-success hover:text-success hover:bg-success/10">
-                    <CheckCircle className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                ))}
+                {data.pendingDrivers.length === 0 && data.pendingVehicles.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No pending approvals
+                  </p>
+                )}
+              </>
+            )}
             <Button variant="outline" className="w-full">
               View All Approvals
             </Button>
@@ -122,24 +219,33 @@ export default function PurchaseAdminDashboard() {
             <CardDescription>Real-time trip status tracking</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              { id: 'TRP-001', vehicle: 'MH 14 CD 5678', stage: 'GROSS_WEIGHT' as const, po: 'PO-2024-0152' },
-              { id: 'TRP-002', vehicle: 'GJ 05 EF 9012', stage: 'UNLOADING' as const, po: 'PO-2024-0148' },
-              { id: 'TRP-003', vehicle: 'RJ 27 GH 3456', stage: 'ENTRY_GATE' as const, po: 'PO-2024-0155' },
-            ].map((trip, i) => (
-              <div key={i} className="p-4 rounded-lg bg-muted/30 border space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{trip.vehicle}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {trip.id} • {trip.po}
-                    </p>
+            {isLoading ? (
+              [...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-lg" />
+              ))
+            ) : (
+              <>
+                {data.activeTrips.slice(0, 4).map((trip) => (
+                  <div key={trip.id} className="p-4 rounded-lg bg-muted/30 border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Trip #{trip.id}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Vehicle: {trip.vehicle_id} • PO: {trip.po_id}
+                        </p>
+                      </div>
+                      <StatusBadge status="active" />
+                    </div>
+                    <TripStageProgress currentStage={trip.current_stage as TripStage} />
                   </div>
-                  <StatusBadge status="active" />
-                </div>
-                <TripStageProgress currentStage={trip.stage} />
-              </div>
-            ))}
+                ))}
+                {data.activeTrips.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No active trips
+                  </p>
+                )}
+              </>
+            )}
             <Button variant="outline" className="w-full">
               View All Trips
             </Button>
@@ -157,30 +263,38 @@ export default function PurchaseAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {[
-              { ref: 'PO-2024-0155', seller: 'Steel Corp Ltd', material: 'Iron Ore', status: 'Active' },
-              { ref: 'PO-2024-0154', seller: 'Metro Metals', material: 'Copper Scrap', status: 'Active' },
-              { ref: 'PO-2024-0153', seller: 'National Resources', material: 'Coal', status: 'Active' },
-              { ref: 'PO-2024-0150', seller: 'Gujarat Mining', material: 'Limestone', status: 'Closed' },
-            ].map((po, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-primary" />
+            {isLoading ? (
+              [...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))
+            ) : (
+              <>
+                {data.activePOs.slice(0, 5).map((po) => (
+                  <div
+                    key={po.id}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Package className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{po.po_reference_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {po.seller_name}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status={po.status.toLowerCase() as any} />
                   </div>
-                  <div>
-                    <p className="font-medium">{po.ref}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {po.seller} • {po.material}
-                    </p>
-                  </div>
-                </div>
-                <StatusBadge status={po.status.toLowerCase() as any} />
-              </div>
-            ))}
+                ))}
+                {data.activePOs.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No active purchase orders
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

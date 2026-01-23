@@ -2,7 +2,10 @@ import { StatsCard } from '@/components/dashboard/widgets/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { useSecurityStats } from '@/hooks/useDashboardStats';
+import { useVehicles } from '@/hooks/useVehicles';
 import { 
   Car, 
   ShieldCheck, 
@@ -15,9 +18,24 @@ import {
   Plus,
   LogIn,
   LogOut,
+  RefreshCw,
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function SecurityDashboard() {
+  const { isLoading, stats, data, refetch } = useSecurityStats();
+  const { approveVehicle, rejectVehicle } = useVehicles();
+
+  const handleApprove = async (id: number) => {
+    await approveVehicle(id);
+    refetch();
+  };
+
+  const handleReject = async (id: number) => {
+    await rejectVehicle(id);
+    refetch();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -28,38 +46,54 @@ export default function SecurityDashboard() {
             Gate operations, vehicle registration, and PO verification
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Register Vehicle
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Register Vehicle
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Vehicles Today"
-          value={34}
-          icon={Car}
-          variant="primary"
-        />
-        <StatsCard
-          title="Gate Entries"
-          value={28}
-          icon={LogIn}
-          variant="success"
-        />
-        <StatsCard
-          title="Gate Exits"
-          value={22}
-          icon={LogOut}
-          variant="info"
-        />
-        <StatsCard
-          title="Pending Verification"
-          value={6}
-          icon={Clock}
-          variant="warning"
-        />
+        {isLoading ? (
+          <>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </>
+        ) : (
+          <>
+            <StatsCard
+              title="Vehicles Today"
+              value={stats.vehiclesToday}
+              icon={Car}
+              variant="primary"
+            />
+            <StatsCard
+              title="Gate Entries"
+              value={stats.gateEntries}
+              icon={LogIn}
+              variant="success"
+            />
+            <StatsCard
+              title="Gate Exits"
+              value={stats.gateExits}
+              icon={LogOut}
+              variant="info"
+            />
+            <StatsCard
+              title="Pending Verification"
+              value={stats.pendingVerification}
+              icon={Clock}
+              variant="warning"
+            />
+          </>
+        )}
       </div>
 
       {/* PO Verification Section */}
@@ -116,36 +150,55 @@ export default function SecurityDashboard() {
             <CardDescription>Vehicles awaiting approval</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              { reg: 'MH 12 AB 1234', type: 'Truck', tare: '12,500 kg', time: '5 min ago' },
-              { reg: 'GJ 05 CD 5678', type: 'Trailer', tare: '8,200 kg', time: '12 min ago' },
-              { reg: 'RJ 14 EF 9012', type: 'Truck', tare: '15,000 kg', time: '25 min ago' },
-            ].map((vehicle, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                    <Car className="h-5 w-5 text-warning" />
+            {isLoading ? (
+              [...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))
+            ) : (
+              <>
+                {data.pendingVehicles.slice(0, 5).map((vehicle) => (
+                  <div
+                    key={vehicle.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <Car className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{vehicle.registration_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {vehicle.vehicle_type} • Tare: {vehicle.manufacturer_tare_weight?.toLocaleString() || 'N/A'} kg
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-success hover:text-success hover:bg-success/10"
+                        onClick={() => handleApprove(vehicle.id)}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleReject(vehicle.id)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{vehicle.reg}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {vehicle.type} • Tare: {vehicle.tare} • {vehicle.time}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" className="text-success hover:text-success hover:bg-success/10">
-                    <CheckCircle className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                ))}
+                {data.pendingVehicles.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No pending verifications
+                  </p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -154,40 +207,49 @@ export default function SecurityDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              Recent Vehicles
+              Active Trips
             </CardTitle>
-            <CardDescription>Last 10 vehicles at the gate</CardDescription>
+            <CardDescription>Current vehicles in system</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { reg: 'MH 14 GH 3456', action: 'Entry', time: '2 min ago', status: 'approved' },
-              { reg: 'GJ 01 IJ 7890', action: 'Exit', time: '8 min ago', status: 'completed' },
-              { reg: 'RJ 19 KL 2345', action: 'Entry', time: '15 min ago', status: 'approved' },
-              { reg: 'MP 04 MN 6789', action: 'Exit', time: '22 min ago', status: 'completed' },
-              { reg: 'UP 32 OP 0123', action: 'Entry', time: '35 min ago', status: 'approved' },
-            ].map((vehicle, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                    vehicle.action === 'Entry' ? 'bg-success/10' : 'bg-info/10'
-                  }`}>
-                    {vehicle.action === 'Entry' ? (
-                      <LogIn className={`h-4 w-4 text-success`} />
-                    ) : (
-                      <LogOut className={`h-4 w-4 text-info`} />
-                    )}
+            {isLoading ? (
+              [...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-14 rounded-lg" />
+              ))
+            ) : (
+              <>
+                {data.activeTrips.slice(0, 6).map((trip) => (
+                  <div
+                    key={trip.id}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                        trip.current_stage === 'EXIT_GATE' ? 'bg-info/10' : 'bg-success/10'
+                      }`}>
+                        {trip.current_stage === 'EXIT_GATE' ? (
+                          <LogOut className="h-4 w-4 text-info" />
+                        ) : (
+                          <LogIn className="h-4 w-4 text-success" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Trip #{trip.id} • Vehicle {trip.vehicle_id}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Stage: {trip.current_stage.replace('_', ' ')} • {formatDistanceToNow(new Date(trip.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status="active" />
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{vehicle.reg}</p>
-                    <p className="text-xs text-muted-foreground">{vehicle.time}</p>
-                  </div>
-                </div>
-                <StatusBadge status={vehicle.status as any} />
-              </div>
-            ))}
+                ))}
+                {data.activeTrips.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No active trips
+                  </p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
