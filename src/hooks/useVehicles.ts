@@ -1,0 +1,159 @@
+// src/hooks/useVehicles.ts
+import { useState, useEffect, useCallback } from 'react';
+import { vehicleService } from '@/api/services/vehicleService';
+import { VehicleOut, VehicleCreate } from '@/api/types/vehicle.types';
+import { ApprovalStatus } from '@/api/types/common.types';
+import { toast } from '@/hooks/use-toast';
+
+export const useVehicles = () => {
+  const [vehicles, setVehicles] = useState<VehicleOut[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch all vehicles
+  const fetchVehicles = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await vehicleService.getAll();
+      setVehicles(data);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch vehicles';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch pending verification vehicles
+  const fetchPendingVehicles = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await vehicleService.getPendingVerification();
+      setVehicles(data);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch pending vehicles';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch recent vehicles
+  const fetchRecentVehicles = useCallback(async (limit: number = 10) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await vehicleService.getRecent(limit);
+      setVehicles(data);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to fetch recent vehicles';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Create new vehicle
+  const createVehicle = async (data: VehicleCreate): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const newVehicle = await vehicleService.create(data);
+      setVehicles((prev) => [newVehicle, ...prev]);
+      toast({
+        title: 'Success',
+        description: 'Vehicle created successfully',
+      });
+      return true;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to create vehicle';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Approve vehicle
+  const approveVehicle = async (id: number): Promise<boolean> => {
+    try {
+      const updatedVehicle = await vehicleService.approve(id);
+      setVehicles((prev) =>
+        prev.map((vehicle) => (vehicle.id === id ? updatedVehicle : vehicle))
+      );
+      toast({
+        title: 'Success',
+        description: 'Vehicle approved successfully',
+      });
+      return true;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to approve vehicle';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  // Reject vehicle
+  const rejectVehicle = async (id: number): Promise<boolean> => {
+    try {
+      const updatedVehicle = await vehicleService.reject(id);
+      setVehicles((prev) =>
+        prev.map((vehicle) => (vehicle.id === id ? updatedVehicle : vehicle))
+      );
+      toast({
+        title: 'Success',
+        description: 'Vehicle rejected successfully',
+      });
+      return true;
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to reject vehicle';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, [fetchVehicles]);
+
+  return {
+    vehicles,
+    loading,
+    error,
+    fetchVehicles,
+    fetchPendingVehicles,
+    fetchRecentVehicles,
+    createVehicle,
+    approveVehicle,
+    rejectVehicle,
+    refetch: fetchVehicles,
+  };
+};

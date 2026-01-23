@@ -47,9 +47,9 @@ export default function DriverManagementPage() {
   // Stats
   const stats = useMemo(() => {
     const total = drivers.length;
-    const pending = drivers.filter((d) => d.approval_status === 'pending').length;
-    const approved = drivers.filter((d) => d.approval_status === 'approved').length;
-    const rejected = drivers.filter((d) => d.approval_status === 'rejected').length;
+    const pending = drivers.filter((d) => d.approval_status === 'Pending').length;
+    const approved = drivers.filter((d) => d.approval_status === 'Approved').length;
+    const rejected = drivers.filter((d) => d.approval_status === 'Rejected').length;
     return { total, pending, approved, rejected };
   }, [drivers]);
 
@@ -150,13 +150,13 @@ export default function DriverManagementPage() {
               <TabsTrigger value="all">
                 All ({stats.total})
               </TabsTrigger>
-              <TabsTrigger value="pending">
+              <TabsTrigger value="Pending">
                 Pending ({stats.pending})
               </TabsTrigger>
-              <TabsTrigger value="approved">
+              <TabsTrigger value="Approved">
                 Approved ({stats.approved})
               </TabsTrigger>
-              <TabsTrigger value="rejected">
+              <TabsTrigger value="Rejected">
                 Rejected ({stats.rejected})
               </TabsTrigger>
             </TabsList>

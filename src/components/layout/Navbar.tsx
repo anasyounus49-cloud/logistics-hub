@@ -85,10 +85,10 @@ export function Navbar() {
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        {/* <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-        </Button>
+        </Button> */}
 
         {/* User info */}
         <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-border">

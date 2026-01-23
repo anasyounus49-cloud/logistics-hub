@@ -10,7 +10,7 @@ export interface ApiError {
   status_code?: number;
 }
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export type TripStatus = 'ACTIVE' | 'COMPLETED' | 'FAILED';
 
