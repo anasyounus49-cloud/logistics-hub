@@ -74,7 +74,10 @@ export function StageAdvanceDialog({
 
   const currentIndex = stageOrder.indexOf(trip.current_stage as TripStage);
   const nextStage = stageOrder[currentIndex + 1];
-  const isLastStage = currentIndex >= stageOrder.length - 1;
+  
+  // Trip is completed if status is 'COMPLETED' or if at EXIT_GATE stage
+  const isCompleted = trip.status === 'COMPLETED' || trip.current_stage === 'EXIT_GATE';
+  const isLastStage = currentIndex >= stageOrder.length - 1 || isCompleted;
 
   const onSubmit = (data: AdvanceFormValues) => {
     if (!nextStage) return;
@@ -115,8 +118,18 @@ export function StageAdvanceDialog({
         <div className="space-y-6">
           {/* Current Progress */}
           <div className="p-4 rounded-lg bg-muted/30 border">
-            <p className="text-sm font-medium mb-3">Trip Progress</p>
-            <TripStageProgress currentStage={trip.current_stage as TripStage} />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium">Trip Progress</p>
+              {isCompleted && (
+                <Badge variant="default" className="bg-success">
+                  Completed
+                </Badge>
+              )}
+            </div>
+            <TripStageProgress 
+              currentStage={trip.current_stage as TripStage}
+              isCompleted={isCompleted}
+            />
           </div>
 
           {/* Stage History */}
@@ -211,11 +224,11 @@ export function StageAdvanceDialog({
           )}
 
           {isLastStage && (
-            <div className="p-4 rounded-lg border bg-primary/10 text-center">
-              <CheckCircle2 className="h-8 w-8 text-primary mx-auto mb-2" />
-              <p className="font-medium">Trip Completed</p>
+            <div className="p-4 rounded-lg border bg-success/10 border-success/20 text-center">
+              <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
+              <p className="font-medium text-success">Trip Completed</p>
               <p className="text-sm text-muted-foreground">
-                This trip has reached the final stage
+                This trip has reached the final stage and is marked as completed
               </p>
             </div>
           )}

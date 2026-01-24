@@ -44,7 +44,7 @@ export function AppSidebar() {
       collapsible="icon"
     >
       {/* Header */}
-      <SidebarHeader className="border-b border-sidebar-border p-4">
+      <SidebarHeader className="border-b border-sidebar-border p-3.5">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
             <Scale className="h-5 w-5 text-white" />

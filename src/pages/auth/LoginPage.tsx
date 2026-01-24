@@ -104,6 +104,7 @@ export default function LoginPage() {
                   disabled={isSubmitting}
                   className="h-11"
                   autoComplete="username"
+                  autoFocus
                 />
               </div>
 
@@ -124,6 +125,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -149,35 +151,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            {/* Demo Login Section */}
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-xs text-muted-foreground text-center mb-3">
-                Demo login (password: <code className="bg-muted px-1 rounded">demo</code>)
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { user: 'superadmin', label: 'Super Admin' },
-                  { user: 'admin', label: 'Purchase' },
-                  { user: 'security', label: 'Security' },
-                  { user: 'operator', label: 'Operator' },
-                ].map((demo) => (
-                  <Button
-                    key={demo.user}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setUsername(demo.user);
-                      setPassword('demo');
-                    }}
-                    className="text-xs"
-                  >
-                    {demo.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

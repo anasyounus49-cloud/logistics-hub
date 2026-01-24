@@ -118,7 +118,10 @@ export function TripTable({
                 <StatusBadge status={trip.status.toLowerCase()} />
               </TableCell>
               <TableCell>
-                <TripStageProgress currentStage={trip.current_stage as TripStage} />
+                <TripStageProgress 
+                  currentStage={trip.current_stage as TripStage}
+                  isCompleted={trip.status === 'COMPLETED'}
+                />
               </TableCell>
               <TableCell>
                 <div className="text-sm">

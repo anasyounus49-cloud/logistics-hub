@@ -1,9 +1,10 @@
 import { TripStage } from '@/api/types/common.types';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 interface TripStageProgressProps {
   currentStage: TripStage;
+  isCompleted?: boolean;
   className?: string;
 }
 
@@ -15,14 +16,15 @@ const stages: { key: TripStage; label: string }[] = [
   { key: 'EXIT_GATE', label: 'Exit' },
 ];
 
-export function TripStageProgress({ currentStage, className }: TripStageProgressProps) {
+export function TripStageProgress({ currentStage, isCompleted = false, className }: TripStageProgressProps) {
   const currentIndex = stages.findIndex((s) => s.key === currentStage);
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
       {stages.map((stage, index) => {
-        const isCompleted = index < currentIndex;
-        const isCurrent = index === currentIndex;
+        // If trip is completed and we're at EXIT_GATE, mark it as completed
+        const isCompletedStage = index < currentIndex || (isCompleted && stage.key === 'EXIT_GATE' && index === currentIndex);
+        const isCurrent = index === currentIndex && !isCompletedStage;
         const isPending = index > currentIndex;
 
         return (
@@ -31,12 +33,12 @@ export function TripStageProgress({ currentStage, className }: TripStageProgress
               <div
                 className={cn(
                   'h-8 w-8 rounded-full flex items-center justify-center transition-all',
-                  isCompleted && 'bg-success text-success-foreground',
+                  isCompletedStage && 'bg-success text-success-foreground',
                   isCurrent && 'bg-primary text-primary-foreground ring-4 ring-primary/20',
                   isPending && 'bg-muted text-muted-foreground'
                 )}
               >
-                {isCompleted ? (
+                {isCompletedStage ? (
                   <CheckCircle2 className="h-4 w-4" />
                 ) : (
                   <span className="text-xs font-medium">{index + 1}</span>
@@ -55,7 +57,7 @@ export function TripStageProgress({ currentStage, className }: TripStageProgress
               <div
                 className={cn(
                   'h-0.5 w-6 mx-1 mt-[-16px]',
-                  index < currentIndex ? 'bg-success' : 'bg-muted'
+                  (index < currentIndex || (isCompleted && index === currentIndex)) ? 'bg-success' : 'bg-muted'
                 )}
               />
             )}
