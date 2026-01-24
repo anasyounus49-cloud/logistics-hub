@@ -24,6 +24,7 @@ import StaffManagementPage from "@/pages/management/StaffManagementPage";
 import DriverManagementPage from "@/pages/management/DriverManagementPage";
 import { VehicleManagementPage } from "@/pages/management/VehicleManagementPage";
 import PurchaseOrderManagementPage from "@/pages/management/PurchaseOrderManagementPage";
+import MaterialManagementPage from "@/pages/management/MaterialManagementPage";
 
 // Operations pages
 import TripManagementPage from "@/pages/operations/TripManagementPage";
@@ -73,7 +74,7 @@ const App = () => (
               <Route path="/management/drivers" element={<DriverManagementPage />} />
               <Route path="/management/vehicles" element={<VehicleManagementPage />} />
               <Route path="/management/purchase-orders" element={<PurchaseOrderManagementPage />} />
-              <Route path="/management/materials" element={<PlaceholderPage title="Materials" />} />
+              <Route path="/management/materials" element={<MaterialManagementPage />} />
               <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
               <Route path="/operations/trips" element={<TripManagementPage />} />
               <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
