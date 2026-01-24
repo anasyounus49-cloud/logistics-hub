@@ -13,19 +13,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { TripOut } from '@/api/types/trip.types';
+import { EnrichedTrip } from '@/hooks/useTrips';
 import { TripStage } from '@/api/types/common.types';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { TripStageProgress } from '@/components/common/TripStageProgress';
-import { MoreHorizontal, Play, Eye, ArrowRight } from 'lucide-react';
+import { MoreHorizontal, Eye, ArrowRight, Truck, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 interface TripTableProps {
-  trips: TripOut[];
+  trips: EnrichedTrip[];
   isLoading: boolean;
-  onViewDetails: (trip: TripOut) => void;
-  onAdvanceStage: (trip: TripOut) => void;
+  onViewDetails: (trip: EnrichedTrip) => void;
+  onAdvanceStage: (trip: EnrichedTrip) => void;
 }
 
 export function TripTable({
@@ -59,9 +60,9 @@ export function TripTable({
         <TableHeader>
           <TableRow>
             <TableHead>Trip ID</TableHead>
-            <TableHead>Vehicle ID</TableHead>
-            <TableHead>Driver ID</TableHead>
-            <TableHead>PO ID</TableHead>
+            <TableHead>Vehicle</TableHead>
+            <TableHead>Driver</TableHead>
+            <TableHead>Purchase Order</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Current Stage</TableHead>
             <TableHead>Weights</TableHead>
@@ -73,11 +74,46 @@ export function TripTable({
           {trips.map((trip) => (
             <TableRow key={trip.id}>
               <TableCell className="font-medium">
-                TRP-{trip.id.toString().padStart(4, '0')}
+                <Badge variant="outline" className="font-mono">
+                  TRP-{trip.id.toString().padStart(4, '0')}
+                </Badge>
               </TableCell>
-              <TableCell>VEH-{trip.vehicle_id}</TableCell>
-              <TableCell>DRV-{trip.driver_id}</TableCell>
-              <TableCell>PO-{trip.po_id}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">
+                      {trip.vehicle_registration || `VEH-${trip.vehicle_id}`}
+                    </p>
+                    {trip.vehicle_type && (
+                      <p className="text-xs text-muted-foreground">{trip.vehicle_type}</p>
+                    )}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">
+                      {trip.driver_name || `DRV-${trip.driver_id}`}
+                    </p>
+                    {trip.driver_mobile && (
+                      <p className="text-xs text-muted-foreground">{trip.driver_mobile}</p>
+                    )}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div>
+                  <p className="font-medium">
+                    {trip.po_reference || `PO-${trip.po_id}`}
+                  </p>
+                  {trip.seller_name && (
+                    <p className="text-xs text-muted-foreground">{trip.seller_name}</p>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>
                 <StatusBadge status={trip.status.toLowerCase()} />
               </TableCell>
@@ -86,10 +122,15 @@ export function TripTable({
               </TableCell>
               <TableCell>
                 <div className="text-sm">
-                  <div>Gross: {trip.gross_weight ? `${trip.gross_weight} kg` : '—'}</div>
+                  <div>Gross: {trip.gross_weight ? `${trip.gross_weight.toLocaleString()} kg` : '—'}</div>
                   <div className="text-muted-foreground">
-                    Tare: {trip.tare_weight ? `${trip.tare_weight} kg` : '—'}
+                    Tare: {trip.tare_weight ? `${trip.tare_weight.toLocaleString()} kg` : '—'}
                   </div>
+                  {trip.gross_weight && trip.tare_weight && (
+                    <div className="text-primary font-medium">
+                      Net: {(trip.gross_weight - trip.tare_weight).toLocaleString()} kg
+                    </div>
+                  )}
                 </div>
               </TableCell>
               <TableCell>

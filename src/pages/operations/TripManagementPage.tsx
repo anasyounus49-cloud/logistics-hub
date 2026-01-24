@@ -8,17 +8,16 @@ import { TripTable } from '@/components/trips/TripTable';
 import { TripFormDialog } from '@/components/trips/TripFormDialog';
 import { TripDetailDialog } from '@/components/trips/TripDetailDialog';
 import { StageAdvanceDialog } from '@/components/trips/StageAdvanceDialog';
-import { useTrips } from '@/hooks/useTrips';
-import { TripOut } from '@/api/types/trip.types';
+import { useTrips, EnrichedTrip } from '@/hooks/useTrips';
 import { TripStatus, TripStage } from '@/api/types/common.types';
-import { Plus, Route, CheckCircle2, Clock, RefreshCw, Scale } from 'lucide-react';
+import { Plus, Route, CheckCircle2, Scale, RefreshCw, Loader2 } from 'lucide-react';
 
 export default function TripManagementPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed'>('all');
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<TripStage | 'all'>('all');
   const [formOpen, setFormOpen] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState<TripOut | null>(null);
+  const [selectedTrip, setSelectedTrip] = useState<EnrichedTrip | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [advanceOpen, setAdvanceOpen] = useState(false);
 
@@ -34,8 +33,10 @@ export default function TripManagementPage() {
         !search ||
         trip.id.toString().includes(searchLower) ||
         `trp-${trip.id}`.includes(searchLower) ||
-        trip.vehicle_id.toString().includes(searchLower) ||
-        trip.driver_id.toString().includes(searchLower);
+        trip.vehicle_registration?.toLowerCase().includes(searchLower) ||
+        trip.driver_name?.toLowerCase().includes(searchLower) ||
+        trip.po_reference?.toLowerCase().includes(searchLower) ||
+        trip.seller_name?.toLowerCase().includes(searchLower);
 
       const matchesStage = stageFilter === 'all' || trip.current_stage === stageFilter;
 
@@ -59,12 +60,12 @@ export default function TripManagementPage() {
     return { active, completed, atWeighbridge, totalWeight };
   }, [trips]);
 
-  const handleViewDetails = (trip: TripOut) => {
+  const handleViewDetails = (trip: EnrichedTrip) => {
     setSelectedTrip(trip);
     setDetailOpen(true);
   };
 
-  const handleAdvanceStage = (trip: TripOut) => {
+  const handleAdvanceStage = (trip: EnrichedTrip) => {
     setSelectedTrip(trip);
     setAdvanceOpen(true);
   };
@@ -80,8 +81,12 @@ export default function TripManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
             Refresh
           </Button>
           <Button onClick={() => setFormOpen(true)}>
@@ -131,9 +136,15 @@ export default function TripManagementPage() {
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="all">
+                  All ({trips.length})
+                </TabsTrigger>
+                <TabsTrigger value="active">
+                  Active ({trips.filter(t => t.status === 'ACTIVE').length})
+                </TabsTrigger>
+                <TabsTrigger value="completed">
+                  Completed ({trips.filter(t => t.status === 'COMPLETED').length})
+                </TabsTrigger>
               </TabsList>
               <TripFilters
                 search={search}
