@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,13 +19,13 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { TripOut } from '@/api/types/trip.types';
+import { EnrichedTrip } from '@/hooks/useTrips';
 import { TripStage } from '@/api/types/common.types';
 import { TripStageProgress } from '@/components/common/TripStageProgress';
 import { useAdvanceStage, useTripStages } from '@/hooks/useTrips';
-import { Loader2, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
+import { Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const stageOrder: TripStage[] = [
   'ENTRY_GATE',
@@ -51,7 +50,7 @@ const advanceSchema = z.object({
 type AdvanceFormValues = z.infer<typeof advanceSchema>;
 
 interface StageAdvanceDialogProps {
-  trip: TripOut | null;
+  trip: EnrichedTrip | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -101,9 +100,15 @@ export function StageAdvanceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Advance Trip Stage</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Advance Trip Stage
+            <Badge variant="outline" className="font-mono">
+              TRP-{trip.id.toString().padStart(4, '0')}
+            </Badge>
+          </DialogTitle>
           <DialogDescription>
-            Trip TRP-{trip.id.toString().padStart(4, '0')} • Vehicle: VEH-{trip.vehicle_id}
+            Vehicle: {trip.vehicle_registration || `VEH-${trip.vehicle_id}`} • 
+            Driver: {trip.driver_name || `DRV-${trip.driver_id}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -123,12 +128,12 @@ export function StageAdvanceDialog({
               </div>
             ) : (
               <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {stageHistory?.map((stage, index) => (
+                {stageHistory?.map((stage) => (
                   <div
                     key={stage.id}
                     className="flex items-start gap-3 p-2 rounded bg-muted/20"
                   >
-                    <CheckCircle2 className="h-4 w-4 text-success mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-primary mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{stage.stage_name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -206,8 +211,8 @@ export function StageAdvanceDialog({
           )}
 
           {isLastStage && (
-            <div className="p-4 rounded-lg border bg-success/10 text-center">
-              <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
+            <div className="p-4 rounded-lg border bg-primary/10 text-center">
+              <CheckCircle2 className="h-8 w-8 text-primary mx-auto mb-2" />
               <p className="font-medium">Trip Completed</p>
               <p className="text-sm text-muted-foreground">
                 This trip has reached the final stage

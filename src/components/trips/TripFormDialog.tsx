@@ -29,7 +29,7 @@ import { useCreateTrip } from '@/hooks/useTrips';
 import { useApprovedDrivers } from '@/hooks/useDrivers';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useActivePurchaseOrders } from '@/hooks/usePurchaseOrders';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Truck, User, FileText } from 'lucide-react';
 
 const tripSchema = z.object({
   vehicle_id: z.string().min(1, 'Vehicle is required'),
@@ -101,7 +101,10 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                 name="vehicle_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Vehicle</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Truck className="h-4 w-4" />
+                      Vehicle
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -109,11 +112,17 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {approvedVehicles.map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.registration_number} ({vehicle.vehicle_type})
-                          </SelectItem>
-                        ))}
+                        {approvedVehicles.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No approved vehicles available
+                          </div>
+                        ) : (
+                          approvedVehicles.map((vehicle) => (
+                            <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                              {vehicle.registration_number} ({vehicle.vehicle_type})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -126,7 +135,10 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                 name="driver_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Driver</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Driver
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -134,11 +146,17 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {drivers?.map((driver) => (
-                          <SelectItem key={driver.id} value={driver.id.toString()}>
-                            {driver.driver_name} ({driver.mobile_number})
-                          </SelectItem>
-                        ))}
+                        {drivers?.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No approved drivers available
+                          </div>
+                        ) : (
+                          drivers?.map((driver) => (
+                            <SelectItem key={driver.id} value={driver.id.toString()}>
+                              {driver.driver_name} ({driver.mobile_number})
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -151,7 +169,10 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                 name="po_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Purchase Order</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Purchase Order
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -159,11 +180,17 @@ export function TripFormDialog({ open, onOpenChange }: TripFormDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {purchaseOrders?.map((po) => (
-                          <SelectItem key={po.id} value={po.id.toString()}>
-                            {po.po_reference_number} - {po.seller_name}
-                          </SelectItem>
-                        ))}
+                        {purchaseOrders?.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No active purchase orders available
+                          </div>
+                        ) : (
+                          purchaseOrders?.map((po) => (
+                            <SelectItem key={po.id} value={po.id.toString()}>
+                              {po.po_reference_number} - {po.seller_name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
