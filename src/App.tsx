@@ -32,14 +32,19 @@ import TripManagementPage from "@/pages/operations/TripManagementPage";
 // Other pages
 import NotFound from "@/pages/NotFound";
 
+// Create QueryClient outside component to persist but allow clearing on logout
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 });
+
+// Export queryClient for access in other components (for clearing on logout)
+export { queryClient };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

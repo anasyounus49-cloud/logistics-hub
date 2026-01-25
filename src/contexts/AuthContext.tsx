@@ -163,8 +163,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Set loading state first to trigger UI update
-    setState((prev) => ({ ...prev, isLoading: true }));
+    // Clear state immediately to prevent stale data issues
+    setState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: true,
+    });
+    
+    // Clear storage first to ensure clean state
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
     
     if (!isDemoMode) {
       try {
@@ -174,12 +183,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    // Clear storage
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
     setIsDemoMode(false);
     
-    // Reset state - this triggers re-render
+    // Reset loading state
     setState({
       user: null,
       token: null,

@@ -1,26 +1,24 @@
-import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { Navbar } from '@/components/layout/Navbar';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
 
 export function DashboardLayout() {
   const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (!user) return null;
 
+  // Use user.id as key to force complete re-mount when user changes
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider key={`sidebar-${user.id}`} defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar />
+        <AppSidebar key={`app-sidebar-${user.id}`} />
         <div className="flex-1 flex flex-col min-w-0">
-          <Navbar />
+          <Navbar key={`navbar-${user.id}`} />
           <main className="flex-1 p-6 overflow-auto">
             <div className="mx-auto max-w-7xl animate-fade-in">
-              <Outlet />
+              <Outlet key={`outlet-${user.id}-${user.role}`} />
             </div>
           </main>
         </div>
