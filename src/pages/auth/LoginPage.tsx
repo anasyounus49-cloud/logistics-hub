@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { getDefaultDashboard } from '@/utils/roleConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,11 +23,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const queryClient = useQueryClient();
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Redirect authenticated users to their role-specific dashboard
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const dashboardPath = getDefaultDashboard(user.role);
+      navigate(dashboardPath, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +49,13 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      // Clear all cached queries before login to prevent stale data
+      queryClient.clear();
+      
       await login(username, password);
-      navigate(from, { replace: true });
+      
+      // Login successful - the useEffect above will handle redirect
+      // based on the new user's role
     } catch (err: any) {
       const message = err?.response?.data?.detail || 'Invalid username or password';
       setError(message);
