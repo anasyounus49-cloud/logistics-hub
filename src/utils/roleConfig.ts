@@ -65,6 +65,7 @@ export const roleConfig: RoleConfig = {
         items: [
           { title: 'Trips', href: '/operations/trips', icon: Route },
           { title: 'Weight Records', href: '/operations/weights', icon: Scale },
+          { title: 'Unloading', href: '/operations/unloading', icon: Package },
         ],
       },
       {
@@ -154,7 +155,7 @@ export const roleConfig: RoleConfig = {
         title: 'Verification',
         items: [
           { title: 'Quality Check', href: '/operations/quality-check', icon: CheckCircle },
-          { title: 'Unloading', href: '/operations/unloading', icon: Weight },
+          { title: 'Unloading Records', href: '/operations/unloading', icon: Package },
         ],
       },
     ],
