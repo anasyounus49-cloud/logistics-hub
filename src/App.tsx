@@ -28,6 +28,7 @@ import MaterialManagementPage from "@/pages/management/MaterialManagementPage";
 
 // Operations pages
 import TripManagementPage from "@/pages/operations/TripManagementPage";
+import WeightManagementPage from "@/pages/operations/WeightManagementPage";
 
 // Other pages
 import NotFound from "@/pages/NotFound";
@@ -82,6 +83,8 @@ const App = () => (
               <Route path="/management/materials" element={<MaterialManagementPage />} />
               <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
               <Route path="/operations/trips" element={<TripManagementPage />} />
+              <Route path="/operations/weights" element={<WeightManagementPage />} />
+              <Route path="/operations/weight-capture" element={<WeightManagementPage />} />
               <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
               <Route path="/approvals/*" element={<PlaceholderPage title="Approvals" />} />
               <Route path="/security/*" element={<PlaceholderPage title="Security" />} />

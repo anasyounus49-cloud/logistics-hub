@@ -146,8 +146,8 @@ export const roleConfig: RoleConfig = {
       {
         title: 'Weight Operations',
         items: [
-          { title: 'Weight Capture', href: '/operations/weight-capture', icon: Scale },
-          { title: 'Active Trips', href: '/operations/active-trips', icon: Route },
+          { title: 'Weight Records', href: '/operations/weight-capture', icon: Scale },
+          { title: 'Active Trips', href: '/operations/trips', icon: Route },
         ],
       },
       {
