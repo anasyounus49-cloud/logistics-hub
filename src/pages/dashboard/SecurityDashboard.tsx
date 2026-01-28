@@ -32,33 +32,11 @@ export default function SecurityDashboard() {
   const [poSearch, setPoSearch] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const { isLoading, stats, data, refetch } = useSecurityStats();
-  const { vehicles, approveVehicle, rejectVehicle, fetchPendingVehicles, fetchVehicles } = useVehicles();
+  const { vehicles, fetchPendingVehicles, fetchVehicles } = useVehicles();
   const { data: drivers, isLoading: driversLoading, refetch: refetchDrivers } = useDrivers();
-  const approveDriver = useApproveDriver();
-  const rejectDriver = useRejectDriver();
 
   const pendingDrivers = drivers?.filter(d => d.approval_status === 'Pending') || [];
   const pendingVehicles = data.pendingVehicles || [];
-
-  const handleApproveVehicle = async (id: number) => {
-    await approveVehicle(id);
-    refetch();
-  };
-
-  const handleRejectVehicle = async (id: number) => {
-    await rejectVehicle(id);
-    refetch();
-  };
-
-  const handleApproveDriver = async (id: number) => {
-    await approveDriver.mutateAsync(id);
-    refetchDrivers();
-  };
-
-  const handleRejectDriver = async (id: number) => {
-    await rejectDriver.mutateAsync(id);
-    refetchDrivers();
-  };
 
   const handleRefreshAll = () => {
     refetch();
@@ -133,9 +111,6 @@ export default function SecurityDashboard() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4 bg-muted">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
-          <TabsTrigger value="drivers">Drivers</TabsTrigger>
-          <TabsTrigger value="trips">Active Trips</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -219,22 +194,6 @@ export default function SecurityDashboard() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="text-success hover:text-success hover:bg-success/10"
-                            onClick={() => handleApproveVehicle(vehicle.id)}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleRejectVehicle(vehicle.id)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
                         </div>
                       </div>
                     ))}
@@ -285,29 +244,11 @@ export default function SecurityDashboard() {
                           <div>
                             <p className="font-medium">{driver.driver_name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {driver.mobile_number} • Aadhaar: ****{driver.aadhaar?.slice(-4)}
+                              {driver.mobile_number} • Aadhaar: ****{driver.aadhaar_encrypted?.slice(-4)}
                             </p>
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="text-success hover:text-success hover:bg-success/10"
-                            onClick={() => handleApproveDriver(driver.id)}
-                            disabled={approveDriver.isPending}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleRejectDriver(driver.id)}
-                            disabled={rejectDriver.isPending}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
                         </div>
                       </div>
                     ))}
@@ -332,7 +273,7 @@ export default function SecurityDashboard() {
           </div>
         </TabsContent>
 
-        {/* Vehicles Tab */}
+        {/* Vehicles Tab
         <TabsContent value="vehicles" className="space-y-4">
           <Card>
             <CardHeader>
@@ -369,24 +310,6 @@ export default function SecurityDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="text-success border-success/30 hover:bg-success/10"
-                          onClick={() => handleApproveVehicle(vehicle.id)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => handleRejectVehicle(vehicle.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -400,10 +323,10 @@ export default function SecurityDashboard() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Drivers Tab */}
-        <TabsContent value="drivers" className="space-y-4">
+        {/* <TabsContent value="drivers" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -433,32 +356,9 @@ export default function SecurityDashboard() {
                           <p className="text-sm text-muted-foreground">
                             Mobile: {driver.mobile_number}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Aadhaar: ****{driver.aadhaar?.slice(-4)}
-                          </p>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="text-success border-success/30 hover:bg-success/10"
-                          onClick={() => handleApproveDriver(driver.id)}
-                          disabled={approveDriver.isPending}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => handleRejectDriver(driver.id)}
-                          disabled={rejectDriver.isPending}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -472,10 +372,10 @@ export default function SecurityDashboard() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Active Trips Tab */}
-        <TabsContent value="trips" className="space-y-4">
+        {/* <TabsContent value="trips" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -526,7 +426,7 @@ export default function SecurityDashboard() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

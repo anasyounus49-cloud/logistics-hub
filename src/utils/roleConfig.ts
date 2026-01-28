@@ -154,8 +154,8 @@ export const roleConfig: RoleConfig = {
       {
         title: 'Verification',
         items: [
-          { title: 'Quality Check', href: '/operations/quality-check', icon: CheckCircle },
-          { title: 'Unloading Records', href: '/operations/unloading', icon: Package },
+          { title: 'Quality Check & Unloading Records', href: '/operations/quality-check', icon: CheckCircle },
+          // { title: 'Unloading Records', href: '/operations/unloading', icon: Package },
         ],
       },
     ],
