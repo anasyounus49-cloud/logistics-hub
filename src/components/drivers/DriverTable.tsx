@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, User } from 'lucide-react';
 import { DriverOut } from '@/api/types/driver.types';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -96,8 +96,9 @@ export function DriverTable({
               <TableHead>ID</TableHead>
               <TableHead>Driver Name</TableHead>
               <TableHead>Mobile Number</TableHead>
-              <TableHead>Aadhaar</TableHead>
+              {/* <TableHead>Aadhaar</TableHead> */}
               <TableHead>Status</TableHead>
+              <TableHead>Approver</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -107,9 +108,9 @@ export function DriverTable({
                 <TableCell className="font-mono text-sm">#{driver.id}</TableCell>
                 <TableCell className="font-medium">{driver.driver_name}</TableCell>
                 <TableCell>{driver.mobile_number}</TableCell>
-                <TableCell className="font-mono text-sm">
-                  {driver.aadhaar ? `****${driver.aadhaar.slice(-4)}` : '—'}
-                </TableCell>
+                {/* <TableCell className="font-mono text-sm">
+                  {driver.aadhaar_encrypted ? `****${driver.aadhaar_encrypted.slice(-4)}` : '—'}
+                </TableCell> */}
                 <TableCell>
                   <Badge
                     variant="secondary"
@@ -117,6 +118,18 @@ export function DriverTable({
                   >
                     {driver.approval_status}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {driver.approver_id ? (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        Staff ID: {driver.approver_id}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>

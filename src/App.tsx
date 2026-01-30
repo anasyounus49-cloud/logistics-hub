@@ -53,7 +53,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <AuthProvider>
           <Routes>
             {/* Public routes */}
@@ -83,12 +88,16 @@ const App = () => (
               <Route path="/management/purchase-orders" element={<PurchaseOrderManagementPage />} />
               <Route path="/management/materials" element={<MaterialManagementPage />} />
               <Route path="/management/*" element={<PlaceholderPage title="Management" />} />
+
+              {/* Operations routes */}
               <Route path="/operations/trips" element={<TripManagementPage />} />
               <Route path="/operations/weights" element={<WeightManagementPage />} />
               <Route path="/operations/weight-capture" element={<WeightManagementPage />} />
               <Route path="/operations/unloading" element={<UnloadingManagementPage />} />
               <Route path="/operations/quality-check" element={<UnloadingManagementPage />} />
               <Route path="/operations/*" element={<PlaceholderPage title="Operations" />} />
+
+              {/* Other sections */}
               <Route path="/approvals/*" element={<PlaceholderPage title="Approvals" />} />
               <Route path="/security/*" element={<PlaceholderPage title="Security" />} />
               <Route path="/settings" element={<PlaceholderPage title="Settings" />} />

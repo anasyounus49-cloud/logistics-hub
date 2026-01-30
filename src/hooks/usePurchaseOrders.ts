@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { purchaseOrderService } from '@/api/services/purchaseOrderService';
 import { materialService } from '@/api/services/materialService';
-import { POCreate, POOut } from '@/api/types/purchaseOrder.types';
+import { POCreate } from '@/api/types/purchaseOrder.types';
 import { POStatus } from '@/api/types/common.types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,6 +32,15 @@ export function useClosedPurchaseOrders() {
     queryFn: () => purchaseOrderService.getClosed(),
   });
 }
+
+export const usePurchaseOrderByReference = (referenceNumber?: string) => {
+  return useQuery({
+    queryKey: ["purchase-order", referenceNumber],
+    queryFn: () =>
+      purchaseOrderService.getByReference(referenceNumber as string),
+    enabled: !!referenceNumber, // don’t fire if empty
+  });
+};
 
 export function useMaterials() {
   return useQuery({

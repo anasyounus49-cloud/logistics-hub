@@ -1,4 +1,4 @@
-import { POOut } from '@/api/types/purchaseOrder.types';
+import { POOut, POStatus } from '@/api/types/purchaseOrder.types';
 import { MaterialOut } from '@/api/types/material.types';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import {
@@ -31,13 +31,13 @@ export function PODetailDialog({
     return material ? `${material.name}${material.grade ? ` (${material.grade})` : ''}` : `Material #${materialId}`;
   };
 
-  const getStatusVariant = (status: string): 'active' | 'pending' | 'approved' | 'rejected' | 'completed' => {
-    switch (status.toLowerCase()) {
-      case 'active':
+  const getStatusVariant = (status: POStatus): 'active' | 'pending' | 'approved' | 'rejected' | 'completed' => {
+    switch (status) {
+      case 'Active':
         return 'active';
-      case 'expired':
+      case 'Expired':
         return 'rejected';
-      case 'closed':
+      case 'Closed':
         return 'completed';
       default:
         return 'pending';

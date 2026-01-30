@@ -64,6 +64,7 @@ export const VehicleTable = ({
             <TableHead>Type</TableHead>
             <TableHead>Tare Weight (kg)</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Approver</TableHead>
             <TableHead>Created At</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -83,6 +84,15 @@ export const VehicleTable = ({
               <TableCell>{vehicle.manufacturer_tare_weight.toFixed(2)}</TableCell>
               <TableCell>
                 <StatusBadge status={vehicle.approval_status} />
+              </TableCell>
+              <TableCell>
+                {vehicle.approver_id ? (
+                  <span className="text-sm text-muted-foreground">
+                    {vehicle.approver_id}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </TableCell>
               <TableCell>
                 {format(new Date(vehicle.created_at), 'MMM dd, yyyy HH:mm')}

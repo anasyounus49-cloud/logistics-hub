@@ -34,3 +34,5 @@ export interface POCreate {
 }
 
 export type POOut = PurchaseOrder;
+
+export type { POStatus };

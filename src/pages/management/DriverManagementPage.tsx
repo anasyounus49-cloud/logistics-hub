@@ -18,7 +18,7 @@ import {
 import { DriverOut, DriverCreate } from '@/api/types/driver.types';
 import { ApprovalStatus } from '@/api/types/common.types';
 
-export default function DriverManagementPage() {
+function DriverManagementPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'all'>('all');
   const [activeTab, setActiveTab] = useState('all');
@@ -186,3 +186,5 @@ export default function DriverManagementPage() {
     </div>
   );
 }
+
+export default DriverManagementPage;

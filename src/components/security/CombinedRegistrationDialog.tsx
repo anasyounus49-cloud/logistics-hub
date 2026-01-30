@@ -112,7 +112,7 @@ export function CombinedRegistrationDialog({
         createDriver.mutateAsync({
           driver_name: values.driver_name,
           mobile_number: values.mobile_number,
-          aadhaar: values.aadhaar,
+          aadhaar_encrypted: values.aadhaar,
         }),
       ]);
 
@@ -140,7 +140,7 @@ export function CombinedRegistrationDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button className="gap-2">
+          <Button className="w-full">
             <Plus className="h-4 w-4" />
             Register Vehicle & Driver
           </Button>

@@ -6,6 +6,8 @@ export interface Driver {
   mobile_number: string;
   aadhaar_encrypted?: string;
   approval_status: ApprovalStatus;
+  approver_id?: number | null;
+  created_at?: string;
 }
 
 export interface DriverCreate {
@@ -15,3 +17,5 @@ export interface DriverCreate {
 }
 
 export type DriverOut = Driver;
+
+export type { ApprovalStatus };

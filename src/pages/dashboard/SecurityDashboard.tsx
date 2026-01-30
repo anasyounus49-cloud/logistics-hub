@@ -4,16 +4,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useSecurityStats } from '@/hooks/useDashboardStats';
 import { useVehicles } from '@/hooks/useVehicles';
-import { useDrivers, useApproveDriver, useRejectDriver } from '@/hooks/useDrivers';
+import { useDrivers } from '@/hooks/useDrivers';
 import { CombinedRegistrationDialog } from '@/components/security/CombinedRegistrationDialog';
-import { 
-  Car, 
-  ShieldCheck, 
-  FileSearch, 
+import { usePurchaseOrderByReference } from '@/hooks/usePurchaseOrders';
+import { useCreateTrip, useAdvanceStage } from '@/hooks/useTrips';
+import { TripCreate, StageUpdate } from '@/api/types/trip.types';
+import {
+  Car,
+  ShieldCheck,
+  FileSearch,
   Clock,
   Search,
   CheckCircle,
@@ -25,18 +41,39 @@ import {
   Users,
   UserCheck,
   Truck,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
 export default function SecurityDashboard() {
   const [poSearch, setPoSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [tripDialogOpen, setTripDialogOpen] = useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  
   const { isLoading, stats, data, refetch } = useSecurityStats();
-  const { vehicles, fetchPendingVehicles, fetchVehicles } = useVehicles();
+  const { vehicles, fetchVehicles } = useVehicles();
   const { data: drivers, isLoading: driversLoading, refetch: refetchDrivers } = useDrivers();
+  const createTripMutation = useCreateTrip();
+  const advanceStageMutation = useAdvanceStage();
+
+  const isReferenceId = /^PO[-_\s]?\d+$/i.test(poSearch.trim());
+  const {
+    data: poData,
+    isLoading: poLoading,
+    isError: poError,
+  } = usePurchaseOrderByReference(
+    isReferenceId ? poSearch.trim() : undefined
+  );
 
   const pendingDrivers = drivers?.filter(d => d.approval_status === 'Pending') || [];
-  const pendingVehicles = data.pendingVehicles || [];
+  const pendingVehicles = data?.pendingVehicles || [];
+  
+  // Filter approved vehicles and drivers for trip creation
+  const approvedVehicles = vehicles?.filter((v) => v.approval_status === 'Approved') || [];
+  const approvedDrivers = drivers?.filter((d) => d.approval_status === 'Approved') || [];
 
   const handleRefreshAll = () => {
     refetch();
@@ -44,390 +81,459 @@ export default function SecurityDashboard() {
     fetchVehicles();
   };
 
+  const handleOpenTripDialog = () => {
+    if (!poData) return;
+    setSelectedVehicleId('');
+    setSelectedDriverId('');
+    setTripDialogOpen(true);
+  };
+
+  const handleCreateTrip = async () => {
+    if (!poData || !selectedVehicleId || !selectedDriverId) {
+      return;
+    }
+
+    const tripData: TripCreate = {
+      vehicle_id: parseInt(selectedVehicleId),
+      driver_id: parseInt(selectedDriverId),
+      po_id: poData.id,
+    };
+
+    try {
+      // Create the trip
+      const createdTrip = await createTripMutation.mutateAsync(tripData);
+
+      // Advance stage to GROSS_WEIGHT
+      const stageUpdate: StageUpdate = {
+        next_stage: 'GROSS_WEIGHT',
+        remarks: 'Vehicle entry at security gate',
+      };
+
+      await advanceStageMutation.mutateAsync({
+        tripId: createdTrip.id,
+        data: stageUpdate,
+      });
+
+      // Reset form and close dialog
+      setTripDialogOpen(false);
+      setSelectedVehicleId('');
+      setSelectedDriverId('');
+      setPoSearch('');
+    } catch (error) {
+      console.error('Error creating trip:', error);
+    }
+  };
+
+  const handleViewAllVehicles = () => {
+    // TODO: Navigate to vehicles page or open modal
+    console.log('View all pending vehicles');
+  };
+
+  const handleViewAllDrivers = () => {
+    // TODO: Navigate to drivers page or open modal
+    console.log('View all pending drivers');
+  };
+
+  const isCreatingTrip = createTripMutation.isPending || advanceStageMutation.isPending;
+
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold">Security Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Security Dashboard</h1>
           <p className="text-muted-foreground">
             Gate operations, vehicle & driver registration, and PO verification
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleRefreshAll} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-          <CombinedRegistrationDialog onSuccess={handleRefreshAll} />
-        </div>
+        <Button onClick={handleRefreshAll} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {isLoading ? (
           <>
             {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
+              <Skeleton key={i} className="h-32" />
             ))}
           </>
         ) : (
           <>
             <StatsCard
-              title="Vehicles Today"
-              value={stats.vehiclesToday}
-              icon={Car}
-              variant="primary"
-            />
-            <StatsCard
-              title="Gate Entries"
-              value={stats.gateEntries}
+              title="Today's Entries"
+              value={stats?.gateEntries || 0}
               icon={LogIn}
-              variant="success"
+              description="Vehicles entered today"
             />
             <StatsCard
-              title="Gate Exits"
-              value={stats.gateExits}
+              title="Today's Exits"
+              value={stats?.gateExits || 0}
               icon={LogOut}
-              variant="info"
+              description="Vehicles exited today"
             />
             <StatsCard
-              title="Pending Vehicles"
-              value={pendingVehicles.length}
+              title="Vehicles Today"
+              value={stats?.vehiclesToday || 0}
               icon={Truck}
-              variant="warning"
+              description="Total vehicles today"
             />
             <StatsCard
               title="Pending Drivers"
               value={pendingDrivers.length}
-              icon={Users}
-              variant="warning"
+              icon={UserCheck}
+              description="Awaiting verification"
+            />
+            <StatsCard
+              title="Pending Vehicles"
+              value={pendingVehicles.length}
+              icon={Car}
+              description="Awaiting verification"
             />
           </>
         )}
       </div>
 
-      {/* Tabs for different management sections */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 bg-muted">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* PO Verification Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSearch className="h-5 w-5" />
-                PO Verification
-              </CardTitle>
-              <CardDescription>Verify purchase order before vehicle entry</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4 mb-6">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Enter PO reference number (e.g., PO-2024-0155)"
-                    className="pl-10"
-                    value={poSearch}
-                    onChange={(e) => setPoSearch(e.target.value)}
-                  />
-                </div>
-                <Button>Verify PO</Button>
+      {/* Top Row - Vehicle Image & PO Verification */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Vehicle Image Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Vehicle Image
+            </CardTitle>
+            <CardDescription>Vehicle photo capture</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Vehicle Image</p>
+                <p className="text-sm">Image will load here</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Mock verified PO */}
-              <div className="p-4 rounded-lg border bg-success/5 border-success/20">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-success" />
-                      <span className="font-semibold text-success">PO Verified</span>
-                    </div>
-                    <p className="font-medium">PO-2024-0155</p>
-                    <p className="text-sm text-muted-foreground">
-                      Seller: Steel Corp Ltd • Material: Iron Ore
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Valid until: 31 Jan 2026 • Remaining qty: 450 MT
+        {/* PO Verification Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSearch className="h-5 w-5" />
+              PO Verification
+            </CardTitle>
+            <CardDescription>Verify purchase order before vehicle entry</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter PO reference (e.g., PO-1234)"
+                value={poSearch}
+                onChange={(e) => setPoSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && isReferenceId && !poLoading) {
+                    e.preventDefault();
+                  }
+                }}
+              />
+              <Button disabled={!isReferenceId || poLoading}>
+                {poLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {/* PO Result */}
+            {poLoading && (
+              <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg text-center">
+                <p className="text-sm text-blue-700">Verifying PO… ⏳</p>
+                <Skeleton className="h-4 w-full mt-2" />
+              </div>
+            )}
+
+            {poError && (
+              <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-900">Invalid PO</p>
+                    <p className="text-sm text-red-700">
+                      No active purchase order found for this reference
                     </p>
                   </div>
-                  <Button size="sm">Create Trip</Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Quick Pending Vehicles */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" />
-                  Pending Vehicles
-                </CardTitle>
-                <CardDescription>Quick approval actions</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoading ? (
-                  [...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-16 rounded-lg" />
-                  ))
-                ) : (
-                  <>
-                    {pendingVehicles.slice(0, 4).map((vehicle) => (
-                      <div
-                        key={vehicle.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                            <Car className="h-5 w-5 text-warning" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{vehicle.registration_number}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {vehicle.vehicle_type} • Tare: {vehicle.manufacturer_tare_weight?.toLocaleString() || 'N/A'} kg
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                        </div>
-                      </div>
-                    ))}
-                    {pendingVehicles.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No pending vehicle verifications
-                      </p>
-                    )}
-                    {pendingVehicles.length > 4 && (
-                      <Button 
-                        variant="link" 
-                        className="w-full" 
-                        onClick={() => setActiveTab('vehicles')}
-                      >
-                        View all {pendingVehicles.length} pending vehicles
-                      </Button>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            {poData && (
+              <div className="p-4 border border-green-200 bg-green-50 rounded-lg space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-green-900">✓ PO Verified</p>
+                    <p className="text-sm font-mono text-green-800">{poData.po_reference_number}</p>
+                    <p className="text-sm text-green-700 mt-1">
+                      Seller: {poData.seller_name}, ValidUntil: {poData.validity_end_date}
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleOpenTripDialog} 
+                  className="w-full" 
+                  size="sm"
+                  disabled={isCreatingTrip}
+                >
+                  {isCreatingTrip ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Trip...
+                    </>
+                  ) : (
+                    'Create Trip'
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-            {/* Quick Pending Drivers */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5" />
-                  Pending Drivers
-                </CardTitle>
-                <CardDescription>Quick approval actions</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {driversLoading ? (
-                  [...Array(3)].map((_, i) => (
-                    <Skeleton key={i} className="h-16 rounded-lg" />
-                  ))
-                ) : (
-                  <>
-                    {pendingDrivers.slice(0, 4).map((driver) => (
-                      <div
-                        key={driver.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{driver.driver_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {driver.mobile_number} • Aadhaar: ****{driver.aadhaar_encrypted?.slice(-4)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                        </div>
-                      </div>
-                    ))}
-                    {pendingDrivers.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No pending driver verifications
-                      </p>
-                    )}
-                    {pendingDrivers.length > 4 && (
-                      <Button 
-                        variant="link" 
-                        className="w-full" 
-                        onClick={() => setActiveTab('drivers')}
-                      >
-                        View all {pendingDrivers.length} pending drivers
-                      </Button>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+      {/* Register Vehicle Button - Full Width */}
+      <Card>
+        <CardContent className="p-6">
+          <Button 
+            className="w-full" 
+            size="lg"
+          >
+          {/* Registration Dialog */}
+          <CombinedRegistrationDialog />
+          </Button>
+        </CardContent>
+      </Card>
 
-        {/* Vehicles Tab
-        <TabsContent value="vehicles" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="h-5 w-5" />
-                All Pending Vehicles
-              </CardTitle>
-              <CardDescription>Complete list of vehicles awaiting approval</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoading ? (
-                [...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
-                ))
-              ) : (
-                <>
-                  {pendingVehicles.map((vehicle) => (
+      {/* Bottom Row - Pending Approvals */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Quick Pending Vehicles */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Pending Vehicles
+            </CardTitle>
+            <CardDescription>Awaiting approval</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {pendingVehicles.slice(0, 4).map((vehicle) => (
                     <div
                       key={vehicle.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border"
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-lg bg-warning/10 flex items-center justify-center">
-                          <Car className="h-6 w-6 text-warning" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-lg">{vehicle.registration_number}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Type: {vehicle.vehicle_type} • Tare Weight: {vehicle.manufacturer_tare_weight?.toLocaleString() || 'N/A'} kg
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Registered: {formatDistanceToNow(new Date(vehicle.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{vehicle.registration_number}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {vehicle.vehicle_type} • Tare:{' '}
+                          {vehicle.manufacturer_tare_weight?.toLocaleString() || 'N/A'} kg
+                        </p>
                       </div>
-                      <div className="flex gap-2">
-                      </div>
+                      <Button variant="ghost" size="sm" className="flex-shrink-0">
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
+
                   {pendingVehicles.length === 0 && (
-                    <div className="text-center py-8">
-                      <Car className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No pending vehicle verifications</p>
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Car className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No pending vehicle verifications</p>
                     </div>
                   )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent> */}
 
-        {/* Drivers Tab */}
-        {/* <TabsContent value="drivers" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                All Pending Drivers
-              </CardTitle>
-              <CardDescription>Complete list of drivers awaiting approval</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {driversLoading ? (
-                [...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
-                ))
-              ) : (
-                <>
-                  {pendingDrivers.map((driver) => (
+                  {pendingVehicles.length > 4 && (
+                    <Button 
+                      onClick={handleViewAllVehicles}
+                      variant="outline" 
+                      className="w-full mt-3" 
+                      size="sm"
+                    >
+                      View all {pendingVehicles.length} pending vehicles
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Pending Drivers */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Pending Drivers
+            </CardTitle>
+            <CardDescription>Awaiting approval</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {driversLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {pendingDrivers.slice(0, 4).map((driver) => (
                     <div
                       key={driver.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border"
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Users className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-lg">{driver.driver_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Mobile: {driver.mobile_number}
-                          </p>
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{driver.driver_name}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {driver.mobile_number} • Aadhaar: ****
+                          {driver.aadhaar_encrypted?.slice(-4)}
+                        </p>
                       </div>
-                      <div className="flex gap-2">
-                      </div>
+                      <Button variant="ghost" size="sm" className="flex-shrink-0">
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
-                  {pendingDrivers.length === 0 && (
-                    <div className="text-center py-8">
-                      <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No pending driver verifications</p>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent> */}
 
-        {/* Active Trips Tab */}
-        {/* <TabsContent value="trips" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Active Trips
-              </CardTitle>
-              <CardDescription>Current vehicles in system</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoading ? (
-                [...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-14 rounded-lg" />
-                ))
-              ) : (
-                <>
-                  {data.activeTrips.map((trip) => (
-                    <div
-                      key={trip.id}
-                      className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-colors border"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                          trip.current_stage === 'EXIT_GATE' ? 'bg-info/10' : 'bg-success/10'
-                        }`}>
-                          {trip.current_stage === 'EXIT_GATE' ? (
-                            <LogOut className="h-5 w-5 text-info" />
-                          ) : (
-                            <LogIn className="h-5 w-5 text-success" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium">Trip #{trip.id} • Vehicle {trip.vehicle_id}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Stage: {trip.current_stage.replace(/_/g, ' ')} • {formatDistanceToNow(new Date(trip.created_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                      <StatusBadge status="active" />
-                    </div>
-                  ))}
-                  {data.activeTrips.length === 0 && (
-                    <div className="text-center py-8">
-                      <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No active trips</p>
+                  {pendingDrivers.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>No pending driver verifications</p>
                     </div>
                   )}
+
+                  {pendingDrivers.length > 4 && (
+                    <Button 
+                      onClick={handleViewAllDrivers}
+                      variant="outline" 
+                      className="w-full mt-3" 
+                      size="sm"
+                    >
+                      View all {pendingDrivers.length} pending drivers
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Trip Dialog */}
+      <Dialog open={tripDialogOpen} onOpenChange={setTripDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create New Trip</DialogTitle>
+            <DialogDescription>
+              Select vehicle and driver for PO: {poData?.po_reference_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* PO Info */}
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium">Purchase Order Details</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Seller: {poData?.seller_name}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Valid until: {poData?.validity_end_date}
+              </p>
+            </div>
+
+            {/* Vehicle Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="vehicle">Select Vehicle *</Label>
+              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+                <SelectTrigger id="vehicle">
+                  <SelectValue placeholder="Choose a vehicle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {approvedVehicles.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      No approved vehicles available
+                    </div>
+                  ) : (
+                    approvedVehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                        {vehicle.registration_number} - {vehicle.vehicle_type}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Driver Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="driver">Select Driver *</Label>
+              <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+                <SelectTrigger id="driver">
+                  <SelectValue placeholder="Choose a driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  {approvedDrivers.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      No approved drivers available
+                    </div>
+                  ) : (
+                    approvedDrivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id.toString()}>
+                        {driver.driver_name} - {driver.mobile_number}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setTripDialogOpen(false)}
+              className="flex-1"
+              disabled={isCreatingTrip}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTrip}
+              className="flex-1"
+              disabled={!selectedVehicleId || !selectedDriverId || isCreatingTrip}
+            >
+              {isCreatingTrip ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
                 </>
+              ) : (
+                'Create Trip & Enter'
               )}
-            </CardContent>
-          </Card>
-        </TabsContent> */}
-      </Tabs>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

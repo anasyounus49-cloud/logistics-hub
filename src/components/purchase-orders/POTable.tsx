@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { POOut } from '@/api/types/purchaseOrder.types';
+import { POOut, POStatus } from '@/api/types/purchaseOrder.types';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import {
   Table,
@@ -39,13 +39,13 @@ interface POTableProps {
 export function POTable({ purchaseOrders, isLoading, onView, onDelete }: POTableProps) {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const getStatusVariant = (status: string): 'active' | 'pending' | 'approved' | 'rejected' | 'completed' => {
-    switch (status.toLowerCase()) {
-      case 'active':
+  const getStatusVariant = (status: POStatus): 'active' | 'pending' | 'approved' | 'rejected' | 'completed' => {
+    switch (status) {
+      case 'Active':
         return 'active';
-      case 'expired':
+      case 'Expired':
         return 'rejected';
-      case 'closed':
+      case 'Closed':
         return 'completed';
       default:
         return 'pending';
@@ -110,16 +110,25 @@ export function POTable({ purchaseOrders, isLoading, onView, onDelete }: POTable
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {po.validity_start_date && po.validity_end_date ? (
-                    <div className="text-sm">
-                      <p>{format(new Date(po.validity_start_date), 'dd MMM yyyy')}</p>
-                      <p className="text-muted-foreground">
-                        to {format(new Date(po.validity_end_date), 'dd MMM yyyy')}
-                      </p>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {(() => {
+                    console.log('PO dates:', {
+                      start: po.validity_start_date,
+                      end: po.validity_end_date,
+                      type: typeof po.validity_start_date
+                    });
+
+                    if (po.validity_start_date && po.validity_end_date) {
+                      return (
+                        <div className="text-sm">
+                          <p>{format(new Date(po.validity_start_date), 'dd MMM yyyy')}</p>
+                          <p className="text-muted-foreground">
+                            to {format(new Date(po.validity_end_date), 'dd MMM yyyy')}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return <span className="text-muted-foreground">-</span>;
+                  })()}
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
                   <div className="flex flex-wrap gap-1">
