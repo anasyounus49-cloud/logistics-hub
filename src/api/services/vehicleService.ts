@@ -8,6 +8,14 @@ export const vehicleService = {
     return response.data;
   },
 
+  async getByRegistration(registrationNumber: string): Promise<VehicleOut> {
+  const response = await apiClient.get<VehicleOut>(
+    ENDPOINTS.VEHICLES.BY_REGISTRATION(encodeURIComponent(registrationNumber))
+  );
+  return response.data;
+  },
+
+
   async getPendingVerification(): Promise<VehicleOut[]> {
     const response = await apiClient.get<VehicleOut[]>(ENDPOINTS.VEHICLES.VERIFICATION);
     return response.data;

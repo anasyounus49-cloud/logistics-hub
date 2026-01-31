@@ -74,10 +74,10 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-bold mb-4">ACWMS</h1>
           <p className="text-xl opacity-90 mb-2">
-            Automated Cargo Weight Management System
+            Access Control & Weighbridge Management System
           </p>
           <p className="text-sm opacity-75">
-            Streamlined weighbridge operations for efficient cargo management
+            Streamlined weighbridge operations for efficient control management
           </p>
         </div>
       </div>

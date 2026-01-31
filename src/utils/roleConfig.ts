@@ -121,17 +121,17 @@ export const roleConfig: RoleConfig = {
       {
         title: 'Gate Operations',
         items: [
-          { title: 'Vehicle Registration', href: '/security/vehicle-registration', icon: Car },
+          // { title: 'Vehicle Registration', href: '/security/vehicle-registration', icon: Car },
           { title: 'PO Verification', href: '/security/po-verification', icon: ClipboardList },
           { title: 'Recent Vehicles', href: '/security/recent-vehicles', icon: Eye },
         ],
       },
-      {
-        title: 'Verification',
-        items: [
-          { title: 'Gate Entry', href: '/security/gate-entry', icon: ShieldCheck },
-        ],
-      },
+      // {
+      //   title: 'Verification',
+      //   items: [
+      //     { title: 'Gate Entry', href: '/security/gate-entry', icon: ShieldCheck },
+      //   ],
+      // },
     ],
   },
   'operator': {

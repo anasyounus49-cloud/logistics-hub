@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,12 +26,11 @@ import { useDrivers } from '@/hooks/useDrivers';
 import { CombinedRegistrationDialog } from '@/components/security/CombinedRegistrationDialog';
 import { usePurchaseOrderByReference } from '@/hooks/usePurchaseOrders';
 import { useCreateTrip, useAdvanceStage } from '@/hooks/useTrips';
+import { useVehicleDetection } from '@/hooks/Usevehicledetection';
 import { TripCreate, StageUpdate } from '@/api/types/trip.types';
 import {
   Car,
-  ShieldCheck,
   FileSearch,
-  Clock,
   Search,
   CheckCircle,
   XCircle,
@@ -43,13 +43,16 @@ import {
   Truck,
   Image as ImageIcon,
   Loader2,
-  Plus,
+  Radio,
+  WifiOff,
+  Wifi,
+  AlertCircle,
+  Download,
 } from 'lucide-react';
 
 export default function SecurityDashboard() {
   const [poSearch, setPoSearch] = useState('');
   const [tripDialogOpen, setTripDialogOpen] = useState(false);
-  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   
@@ -58,6 +61,19 @@ export default function SecurityDashboard() {
   const { data: drivers, isLoading: driversLoading, refetch: refetchDrivers } = useDrivers();
   const createTripMutation = useCreateTrip();
   const advanceStageMutation = useAdvanceStage();
+
+  // WebSocket for live vehicle detection
+  const {
+    data: detectionData,
+    isConnected: wsConnected,
+    error: wsError,
+    reconnect: wsReconnect,
+    clearData: clearDetection,
+  } = useVehicleDetection({
+    url: 'ws://10.3.6.14:8001/ws',
+    autoConnect: true,
+    reconnectInterval: 3000,
+  });
 
   const isReferenceId = /^PO[-_\s]?\d+$/i.test(poSearch.trim());
   const {
@@ -79,6 +95,18 @@ export default function SecurityDashboard() {
     refetch();
     refetchDrivers();
     fetchVehicles();
+  };
+
+  // Function to load detection into registration form
+  const handleLoadDetection = () => {
+    if (!detectionData) {
+      return;
+    }
+    
+    // Call the exposed function from CombinedRegistrationDialog
+    if ((window as any).__loadDetectionIntoForm) {
+      (window as any).__loadDetectionIntoForm();
+    }
   };
 
   const handleOpenTripDialog = () => {
@@ -119,6 +147,7 @@ export default function SecurityDashboard() {
       setSelectedVehicleId('');
       setSelectedDriverId('');
       setPoSearch('');
+      clearDetection();
     } catch (error) {
       console.error('Error creating trip:', error);
     }
@@ -146,11 +175,55 @@ export default function SecurityDashboard() {
             Gate operations, vehicle & driver registration, and PO verification
           </p>
         </div>
-        <Button onClick={handleRefreshAll} variant="outline" size="sm">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          {/* WebSocket Status Badge */}
+          <Badge 
+            variant={wsConnected ? "default" : "destructive"}
+            className="flex items-center gap-1.5"
+          >
+            {wsConnected ? (
+              <>
+                <Wifi className="h-3 w-3" />
+                Live Detection Active
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3" />
+                Disconnected
+              </>
+            )}
+          </Badge>
+          
+          {/* Reconnect button if disconnected */}
+          {!wsConnected && (
+            <Button onClick={wsReconnect} variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reconnect
+            </Button>
+          )}
+          
+          <Button onClick={handleRefreshAll} variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      {/* WebSocket Error Alert */}
+      {wsError && (
+        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <AlertCircle className="h-4 w-4 text-destructive" />
+          <p className="text-sm text-destructive">{wsError}</p>
+          <Button 
+            onClick={wsReconnect} 
+            variant="ghost" 
+            size="sm" 
+            className="ml-auto"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -198,23 +271,61 @@ export default function SecurityDashboard() {
 
       {/* Top Row - Vehicle Image & PO Verification */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Vehicle Image Card */}
+        {/* Live Vehicle Detection Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5" />
-              Vehicle Image
-            </CardTitle>
-            <CardDescription>Vehicle photo capture</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Vehicle Image</p>
-                <p className="text-sm">Image will load here</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                <CardTitle>Live Vehicle Detection</CardTitle>
               </div>
+              <Badge 
+                variant={wsConnected ? "default" : "secondary"}
+                className="flex items-center gap-1"
+              >
+                <Radio className={`h-3 w-3 ${wsConnected ? 'animate-pulse' : ''}`} />
+                {wsConnected ? 'Live' : 'Offline'}
+              </Badge>
             </div>
+            <CardDescription>Real-time plate recognition from camera</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Vehicle Image */}
+            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden relative">
+              {detectionData?.image ? (
+                <img 
+                  src={`data:image/jpeg;base64,${detectionData.image}`} 
+                  alt="Detected Vehicle"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Waiting for detection...</p>
+                  <p className="text-sm">Camera feed will appear here</p>
+                </div>
+              )}
+            </div>
+
+            {/* Detection Info */}
+            {detectionData && (
+              <div className="space-y-2 p-4 bg-muted rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Plate Number:</span>
+                  <span className="text-lg font-bold font-mono text-green-600">
+                    {detectionData.plate}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Vehicle Type:</span>
+                  <span className="text-sm">{detectionData.vehicle}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">FASTag:</span>
+                  <span className="text-sm">{detectionData.fastag}</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -278,7 +389,7 @@ export default function SecurityDashboard() {
                     <p className="font-semibold text-green-900">✓ PO Verified</p>
                     <p className="text-sm font-mono text-green-800">{poData.po_reference_number}</p>
                     <p className="text-sm text-green-700 mt-1">
-                      Seller: {poData.seller_name}, ValidUntil: {poData.validity_end_date}
+                      Seller: {poData.seller_name}, Valid Until: {poData.validity_end_date}
                     </p>
                   </div>
                 </div>
@@ -303,16 +414,42 @@ export default function SecurityDashboard() {
         </Card>
       </div>
 
-      {/* Register Vehicle Button - Full Width */}
+      {/* Register Vehicle & Driver - Full Width */}
       <Card>
         <CardContent className="p-6">
-          <Button 
-            className="w-full" 
-            size="lg"
-          >
-          {/* Registration Dialog */}
-          <CombinedRegistrationDialog />
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Registration Dialog with detection data */}
+            <div className="flex-1">
+              <CombinedRegistrationDialog 
+                detectedData={detectionData ? {
+                  registrationNumber: detectionData.plate,
+                  fastagId: detectionData.fastag,
+                  vehicleType: detectionData.vehicle,
+                  vehicleImage: detectionData.image,
+                } : undefined}
+                onLoadDetection={handleLoadDetection}
+              />
+            </div>
+            
+            {/* Reload Detection Button */}
+            <Button
+              onClick={handleLoadDetection}
+              variant="outline"
+              size="default"
+              disabled={!detectionData}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Load Detection
+            </Button>
+          </div>
+          
+          {/* Helper text */}
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            {detectionData 
+              ? "Click 'Load Detection' to populate form with detected vehicle data" 
+              : "Waiting for vehicle detection..."}
+          </p>
         </CardContent>
       </Card>
 
@@ -406,7 +543,7 @@ export default function SecurityDashboard() {
                         <p className="font-medium truncate">{driver.driver_name}</p>
                         <p className="text-sm text-muted-foreground truncate">
                           {driver.mobile_number} • Aadhaar: ****
-                          {driver.aadhaar_encrypted?.slice(-4)}
+                          {driver.aadhaar?.slice(-4)}
                         </p>
                       </div>
                       <Button variant="ghost" size="sm" className="flex-shrink-0">

@@ -34,6 +34,7 @@ export const ENDPOINTS = {
     LIST: '/api/vehicles/',
     VERIFICATION: '/api/vehicles/verification',
     RECENT: '/api/vehicles/security/recent',
+    BY_REGISTRATION: (reg: string) => `/api/vehicles/${reg}`,
     APPROVE: (id: number) => `/api/vehicles/${id}/approve`,
     REJECT: (id: number) => `/api/vehicles/${id}/reject`,
   },
