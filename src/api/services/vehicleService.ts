@@ -48,6 +48,8 @@ export const vehicleService = {
         console.error('POST request failed:', error);
         console.error('Error config:', error.config);
         console.error('Error response:', error.response);
+        console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
+        console.error('Error response status:', error.response?.status);
         throw error;
       }
     } else {
