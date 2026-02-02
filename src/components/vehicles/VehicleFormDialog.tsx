@@ -20,11 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { VehicleCreate } from '@/api/types/vehicle.types';
+import { VehicleCreate, VehicleOut } from '@/api/types/vehicle.types';
 import { Plus } from 'lucide-react';
 
 interface VehicleFormDialogProps {
-  onSubmit: (data: VehicleCreate) => Promise<boolean>;
+  onSubmit: (data: VehicleCreate | FormData) => Promise<VehicleOut | boolean>;
 }
 
 export const VehicleFormDialog = ({ onSubmit }: VehicleFormDialogProps) => {
@@ -44,12 +44,18 @@ export const VehicleFormDialog = ({ onSubmit }: VehicleFormDialogProps) => {
 
   const handleFormSubmit = async (data: VehicleCreate) => {
     setLoading(true);
-    const success = await onSubmit(data);
-    setLoading(false);
-
-    if (success) {
-      reset();
-      setOpen(false);
+    try {
+      const result = await onSubmit(data);
+      // Success if we get here (either VehicleOut object or true)
+      const success = result === true || (typeof result === 'object' && result !== null);
+      if (success) {
+        reset();
+        setOpen(false);
+      }
+    } catch (error) {
+      // Error is already handled by useVehicles hook with toast
+    } finally {
+      setLoading(false);
     }
   };
 
