@@ -4,18 +4,20 @@ import { LoginCredentials, TokenOut, Staff } from '../types/auth.types';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<TokenOut> {
-    // API expects form-urlencoded data
-    const formData = new URLSearchParams();
-    formData.append('username', credentials.username);
-    formData.append('password', credentials.password);
-    formData.append('grant_type', 'password');
-    formData.append('scope', '');
-    
-    const response = await apiClient.post<TokenOut>(ENDPOINTS.AUTH.LOGIN, formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+    // Send JSON body instead of form-urlencoded
+    const response = await apiClient.post<TokenOut>(
+      ENDPOINTS.AUTH.LOGIN,
+      {
+        identifier: credentials.identifier, // username OR email
+        password: credentials.password,
       },
-    });
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
     return response.data;
   },
 
@@ -39,7 +41,10 @@ export const authService = {
     password: string;
     is_superuser?: boolean;
   }): Promise<Staff> {
-    const response = await apiClient.post<Staff>(ENDPOINTS.AUTH.REGISTER, data);
+    const response = await apiClient.post<Staff>(
+      ENDPOINTS.AUTH.REGISTER,
+      data
+    );
     return response.data;
   },
 

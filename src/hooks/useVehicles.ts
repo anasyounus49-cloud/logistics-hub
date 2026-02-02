@@ -70,9 +70,13 @@ export const useVehicles = () => {
     }
   }, []);
 
-  // Create new vehicle
-  const createVehicle = async (data: VehicleCreate): Promise<boolean> => {
+  // UPDATED: Create new vehicle - NOW ACCEPTS FORMDATA OR VEHICLECREATE
+  // Returns the created vehicle and throws error for proper error handling in components
+  const createVehicle = async (data: FormData | VehicleCreate): Promise<VehicleOut> => {
     setLoading(true);
+    
+    console.log('useVehicles.createVehicle called with:', data instanceof FormData ? 'FormData' : 'VehicleCreate object');
+    
     try {
       const newVehicle = await vehicleService.create(data);
       setVehicles((prev) => [newVehicle, ...prev]);
@@ -80,15 +84,24 @@ export const useVehicles = () => {
         title: 'Success',
         description: 'Vehicle created successfully',
       });
-      return true;
+      return newVehicle;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to create vehicle';
+      console.error('useVehicles.createVehicle error:', err);
+      
+      // Extract detailed error message from FastAPI response
+      const errorDetail = err.response?.data?.detail;
+      const errorMessage = Array.isArray(errorDetail)
+        ? errorDetail.map((e: any) => `${e.loc?.join('.')}: ${e.msg}`).join(', ')
+        : errorDetail || err.response?.data?.message || 'Failed to create vehicle';
+      
       toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive',
       });
-      return false;
+      
+      // Re-throw error so calling component can handle it
+      throw err;
     } finally {
       setLoading(false);
     }

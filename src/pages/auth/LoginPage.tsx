@@ -6,18 +6,28 @@ import { getDefaultDashboard } from '@/utils/roleConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Scale, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 
+/**
+ * Validation schema
+ * identifier = username OR email
+ */
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required').max(100),
+  identifier: z.string().min(1, 'Username or email is required').max(100),
   password: z.string().min(1, 'Password is required').max(100),
 });
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +37,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Redirect authenticated users to their role-specific dashboard
+  /**
+   * Redirect authenticated users
+   */
   useEffect(() => {
     if (isAuthenticated && user) {
       const dashboardPath = getDefaultDashboard(user.role);
@@ -39,8 +51,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    // Validate input
-    const result = loginSchema.safeParse({ username, password });
+    const result = loginSchema.safeParse({ identifier, password });
     if (!result.success) {
       setError(result.error.errors[0].message);
       return;
@@ -49,15 +60,18 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      // Clear all cached queries before login to prevent stale data
+      // Prevent stale data from previous sessions
       queryClient.clear();
-      
-      await login(username, password);
-      
-      // Login successful - the useEffect above will handle redirect
-      // based on the new user's role
+
+      await login({
+        identifier,
+        password,
+      });
+
+      // Redirect handled by useEffect
     } catch (err: any) {
-      const message = err?.response?.data?.detail || 'Invalid username or password';
+      const message =
+        err?.response?.data?.detail || 'Invalid username or password';
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -91,7 +105,9 @@ export default function LoginPage() {
                 <Scale className="h-6 w-6 text-white" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              Welcome Back
+            </CardTitle>
             <CardDescription>
               Sign in to access your dashboard
             </CardDescription>
@@ -107,13 +123,13 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="identifier">Username or Email</Label>
                 <Input
-                  id="username"
+                  id="identifier"
                   type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username or email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   disabled={isSubmitting}
                   className="h-11"
                   autoComplete="username"
@@ -156,7 +172,10 @@ export default function LoginPage() {
               >
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
-                    <LoadingSpinner size="sm" className="border-white border-t-transparent" />
+                    <LoadingSpinner
+                      size="sm"
+                      className="border-white border-t-transparent"
+                    />
                     <span>Signing in...</span>
                   </div>
                 ) : (

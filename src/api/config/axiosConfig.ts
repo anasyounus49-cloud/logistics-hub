@@ -4,19 +4,27 @@ import { API_BASE_URL } from './endpoints';
 // Create axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // ❌ REMOVED: Don't set global Content-Type
+  // headers: {
+  //   'Content-Type': 'application/json',
+  // },
   timeout: 30000,
 });
 
-// Request interceptor - add auth token
+// Request interceptor - add auth token and handle Content-Type
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('access_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // ✅ ADDED: Only set Content-Type to JSON if data is NOT FormData
+    // For FormData, axios will automatically set 'multipart/form-data' with boundary
+    if (config.headers && !(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     return config;
   },
   (error: AxiosError) => {

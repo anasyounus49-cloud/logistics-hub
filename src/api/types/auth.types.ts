@@ -1,19 +1,25 @@
 import { UserRole, Department } from './common.types';
 
+/**
+ * Login payload (JSON only)
+ * identifier = username OR email
+ */
 export interface LoginCredentials {
-  username: string;
+  identifier: string;
   password: string;
-  grant_type?: string;
-  scope?: string;
-  client_id?: string | null;
-  client_secret?: string | null;
 }
 
+/**
+ * Token response from backend
+ */
 export interface TokenOut {
   access_token: string;
   token_type: string;
 }
 
+/**
+ * Staff model
+ */
 export interface Staff {
   id: number;
   email: string;
@@ -27,6 +33,9 @@ export interface Staff {
   updated_at: string | null;
 }
 
+/**
+ * Staff creation payload
+ */
 export interface StaffCreate {
   email: string;
   username: string;
@@ -37,6 +46,9 @@ export interface StaffCreate {
   is_superuser?: boolean;
 }
 
+/**
+ * Staff update payload
+ */
 export interface StaffUpdate {
   email?: string | null;
   username?: string | null;
@@ -48,6 +60,9 @@ export interface StaffUpdate {
   department?: Department | null;
 }
 
+/**
+ * Auth store state
+ */
 export interface AuthState {
   user: Staff | null;
   token: string | null;

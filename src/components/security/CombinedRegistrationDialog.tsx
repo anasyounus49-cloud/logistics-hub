@@ -152,12 +152,16 @@ export function CombinedRegistrationDialog({
     }
   }, [detectedData, onLoadDetection]);
 
-  // Helper function to strip base64 prefix and return clean base64 string
-  const stripBase64Prefix = (base64String: string): string => {
-    if (base64String.includes(',')) {
-      return base64String.split(',')[1];
-    }
-    return base64String;
+  // Helper function to convert base64 to File with datetime filename
+  const base64ToFile = async (base64String: string): Promise<File> => {
+    const response = await fetch(base64String);
+    const blob = await response.blob();
+    
+    // Generate filename with datetime: YYYYMMDD_HHMMSS.jpg
+    const now = new Date();
+    const filename = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}.jpg`;
+    
+    return new File([blob], filename, { type: blob.type || 'image/jpeg' });
   };
 
   const handleSubmit = async (values: CombinedFormValues) => {
@@ -165,53 +169,45 @@ export function CombinedRegistrationDialog({
     setSubmitError(null);
     
     try {
-      // Prepare vehicle image as plain base64 text (no compression, just strip data:image prefix)
-      const cleanedImage = capturedImage ? stripBase64Prefix(capturedImage) : undefined;
-
-      // Prepare payloads
-      const vehiclePayload = {
-        registration_number: values.registration_number.toUpperCase(),
-        vehicle_type: values.vehicle_type,
-        manufacturer_tare_weight: values.manufacturer_tare_weight as number,
-        ...(values.fastag_id && values.fastag_id.trim() !== '' && { fastag_id: values.fastag_id }),
-        ...(cleanedImage && { vehicle_image: cleanedImage }), // Save as base64 text string
-      };
-
-      const driverPayload = {
-        driver_name: values.driver_name.trim(),
-        mobile_number: values.mobile_number.trim(),
-        aadhaar: values.aadhaar.trim(),
-      };
-
-      console.log('=== Registration Payloads ===');
-      console.log('Vehicle:', {
-        ...vehiclePayload,
-        vehicle_image: vehiclePayload.vehicle_image ? `[Base64 String - ${vehiclePayload.vehicle_image.length} chars]` : undefined,
-      });
-      console.log('Driver:', driverPayload);
-
-      // Register vehicle and driver sequentially to better handle errors
       let vehicleSuccess = false;
       let driverSuccess = false;
 
+      // Create vehicle with FormData for image upload
       try {
-        // Create vehicle first
         console.log('Creating vehicle...');
-        const vehicleResult = await createVehicle(vehiclePayload);
-        console.log('Vehicle creation result:', vehicleResult);
-        console.log('Vehicle result type:', typeof vehicleResult);
         
-        // The createVehicle function may return true/false or throw an error
-        // If it returns false, it means the vehicle already exists or was created successfully
-        // (depending on your backend implementation)
-        if (vehicleResult === false || vehicleResult === true || vehicleResult === undefined) {
-          // Consider it successful - the API didn't throw an error
-          vehicleSuccess = true;
-          console.log('Vehicle created/exists successfully');
-        } else {
-          vehicleSuccess = true;
-          console.log('Vehicle operation completed');
+        // Create FormData
+        const formData = new FormData();
+        formData.append('registration_number', values.registration_number.toUpperCase());
+        formData.append('vehicle_type', values.vehicle_type);
+        formData.append('manufacturer_tare_weight', values.manufacturer_tare_weight.toString());
+        
+        // Add fastag_number if provided (map from fastag_id)
+        if (values.fastag_id && values.fastag_id.trim() !== '') {
+          formData.append('fastag_number', values.fastag_id.trim());
         }
+
+        // Convert base64 image to File and append
+        if (capturedImage) {
+          try {
+            const imageFile = await base64ToFile(capturedImage);
+            formData.append('image', imageFile);
+            console.log('Image file created:', imageFile.name, imageFile.size, 'bytes');
+          } catch (imageError) {
+            console.error('Failed to convert image:', imageError);
+            throw new Error('Failed to process vehicle image');
+          }
+        }
+
+        // Log FormData contents
+        console.log('FormData contents:');
+        for (const [key, value] of formData.entries()) {
+          console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value);
+        }
+
+        const vehicleResult = await createVehicle(formData);
+        vehicleSuccess = true;
+        console.log('Vehicle created successfully:', vehicleResult);
       } catch (vehicleError: any) {
         console.error('Vehicle creation failed:', vehicleError);
         console.error('Full vehicle error:', vehicleError.response?.data);
@@ -224,9 +220,15 @@ export function CombinedRegistrationDialog({
         throw new Error(`Vehicle registration failed: ${errorMessage}`);
       }
 
+      // Create driver with JSON
       try {
-        // Create driver
         console.log('Creating driver...');
+        const driverPayload = {
+          driver_name: values.driver_name.trim(),
+          mobile_number: values.mobile_number.trim(),
+          aadhaar: values.aadhaar.trim(),
+        };
+        
         await createDriver.mutateAsync(driverPayload);
         driverSuccess = true;
         console.log('Driver created successfully');
@@ -343,7 +345,7 @@ export function CombinedRegistrationDialog({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    This image will be saved as base64 text in the database
+                    This image will be uploaded to the server
                   </p>
                 </CardContent>
               </Card>
