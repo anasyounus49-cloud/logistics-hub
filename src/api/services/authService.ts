@@ -4,17 +4,18 @@ import { LoginCredentials, TokenOut, Staff } from '../types/auth.types';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<TokenOut> {
-    // Create URLSearchParams for form-urlencoded data
+    // API expects form-urlencoded data
     const formData = new URLSearchParams();
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
+    formData.append('grant_type', 'password');
+    formData.append('scope', '');
     
-    // The axios config will automatically set Content-Type to 
-    // application/x-www-form-urlencoded because data is URLSearchParams
-    const response = await apiClient.post<TokenOut>(
-      ENDPOINTS.AUTH.LOGIN,
-      formData
-    );
+    const response = await apiClient.post<TokenOut>(ENDPOINTS.AUTH.LOGIN, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
     return response.data;
   },
 
