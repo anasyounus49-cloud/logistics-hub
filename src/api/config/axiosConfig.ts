@@ -5,7 +5,7 @@ import { API_BASE_URL } from './endpoints';
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json', // Default to JSON
   },
   timeout: 30000,
 });
@@ -17,6 +17,18 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // ✅ IMPORTANT: Handle Content-Type properly
+    // If request is form-urlencoded, override the default JSON header
+    if (config.data instanceof URLSearchParams) {
+      // For form-urlencoded data
+      config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    } else if (config.data instanceof FormData) {
+      // For FormData (file uploads), let browser set the Content-Type with boundary
+      delete config.headers['Content-Type'];
+    }
+    // For JSON data, the default 'application/json' will be used
+    
     return config;
   },
   (error: AxiosError) => {
