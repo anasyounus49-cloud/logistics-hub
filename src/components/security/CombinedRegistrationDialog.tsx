@@ -28,6 +28,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useCreateDriver } from '@/hooks/useDrivers';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useToast } from '@/hooks/use-toast';
+import { vehicleService } from '@/api/services/vehicleService';
 import { Plus, Car, User, Loader2, CheckCircle, Camera, AlertCircle } from 'lucide-react';
 
 const combinedSchema = z.object({
@@ -171,43 +172,97 @@ export function CombinedRegistrationDialog({
     try {
       let vehicleSuccess = false;
       let driverSuccess = false;
+      let usedExistingVehicleStatus: string | null = null;
 
       // Create vehicle with FormData for image upload
       try {
-        console.log('Creating vehicle...');
-        
-        // Create FormData
-        const formData = new FormData();
-        formData.append('registration_number', values.registration_number.toUpperCase());
-        formData.append('vehicle_type', values.vehicle_type);
-        formData.append('manufacturer_tare_weight', values.manufacturer_tare_weight.toString());
-        
-        // Add fastag_number if provided (map from fastag_id)
-        if (values.fastag_id && values.fastag_id.trim() !== '') {
-          formData.append('fastag_number', values.fastag_id.trim());
-        }
+        const regNo = values.registration_number.toUpperCase().trim();
 
-        // Convert base64 image to File and append
-        if (capturedImage) {
-          try {
-            const imageFile = await base64ToFile(capturedImage);
-            formData.append('image', imageFile);
-            console.log('Image file created:', imageFile.name, imageFile.size, 'bytes');
-          } catch (imageError) {
-            console.error('Failed to convert image:', imageError);
-            throw new Error('Failed to process vehicle image');
+        // ✅ Fix: avoid duplicate registration errors by checking for existing vehicle first
+        let existingVehicle: any = null;
+        try {
+          existingVehicle = await vehicleService.getByRegistration(regNo);
+        } catch (lookupErr: any) {
+          // If it's a 404, vehicle does not exist -> proceed to create.
+          // Any other error should stop the flow.
+          if (lookupErr?.response?.status !== 404) {
+            throw lookupErr;
           }
         }
 
-        // Log FormData contents
-        console.log('FormData contents:');
-        for (const [key, value] of formData.entries()) {
-          console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value);
-        }
+        if (existingVehicle) {
+          usedExistingVehicleStatus = existingVehicle.approval_status;
 
-        const vehicleResult = await createVehicle(formData);
-        vehicleSuccess = true;
-        console.log('Vehicle created successfully:', vehicleResult);
+          // If rejected, don't allow a "silent" pass (trip creation should not proceed with rejected vehicles)
+          if (existingVehicle.approval_status === 'Rejected') {
+            throw new Error('Vehicle is Rejected. Please contact an admin or re-verify the vehicle before proceeding.');
+          }
+
+          vehicleSuccess = true;
+
+          toast({
+            title: 'Vehicle already registered',
+            description: `Using existing vehicle (Status: ${existingVehicle.approval_status}).`,
+          });
+        } else {
+          console.log('Creating vehicle...');
+
+          // Create FormData
+          const formData = new FormData();
+          formData.append('registration_number', regNo);
+          formData.append('vehicle_type', values.vehicle_type);
+          formData.append('manufacturer_tare_weight', values.manufacturer_tare_weight.toString());
+
+          // Add fastag_number if provided (map from fastag_id)
+          if (values.fastag_id && values.fastag_id.trim() !== '') {
+            formData.append('fastag_number', values.fastag_id.trim());
+          }
+
+          // Convert base64 image to File and append
+          if (capturedImage) {
+            try {
+              const imageFile = await base64ToFile(capturedImage);
+              formData.append('image', imageFile);
+              console.log('Image file created:', imageFile.name, imageFile.size, 'bytes');
+            } catch (imageError) {
+              console.error('Failed to convert image:', imageError);
+              throw new Error('Failed to process vehicle image');
+            }
+          }
+
+          // Log FormData contents
+          console.log('FormData contents:');
+          for (const [key, value] of formData.entries()) {
+            console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value);
+          }
+
+          try {
+            const vehicleResult = await createVehicle(formData);
+            vehicleSuccess = true;
+            console.log('Vehicle created successfully:', vehicleResult);
+          } catch (createErr: any) {
+            // Fallback for race-condition duplicates: if backend says already exists, fetch and proceed
+            const detail = createErr?.response?.data?.detail;
+            const detailText = typeof detail === 'string' ? detail : '';
+
+            if (createErr?.response?.status === 400 && detailText.toLowerCase().includes('already exists')) {
+              const fetched = await vehicleService.getByRegistration(regNo);
+              usedExistingVehicleStatus = fetched.approval_status;
+
+              if (fetched.approval_status === 'Rejected') {
+                throw new Error('Vehicle is Rejected. Please contact an admin or re-verify the vehicle before proceeding.');
+              }
+
+              vehicleSuccess = true;
+              toast({
+                title: 'Vehicle already registered',
+                description: `Using existing vehicle (Status: ${fetched.approval_status}).`,
+              });
+            } else {
+              throw createErr;
+            }
+          }
+        }
       } catch (vehicleError: any) {
         console.error('Vehicle creation failed:', vehicleError);
         console.error('Full vehicle error:', vehicleError.response?.data);
@@ -244,10 +299,12 @@ export function CombinedRegistrationDialog({
         throw new Error(`Driver registration failed: ${errorMessage}`);
       }
 
-      if (vehicleSuccess && driverSuccess) {
+        if (vehicleSuccess && driverSuccess) {
         toast({
           title: 'Registration Successful',
-          description: 'Both vehicle and driver have been registered and are pending approval.',
+            description: usedExistingVehicleStatus
+              ? `Driver registered successfully. Vehicle already exists (Status: ${usedExistingVehicleStatus}).`
+              : 'Both vehicle and driver have been registered and are pending approval.',
         });
         
         // Clear everything after successful registration
