@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StatsCard } from '@/components/dashboard/widgets/StatsCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import { CombinedRegistrationDialog } from '@/components/security/CombinedRegist
 import { usePurchaseOrderByReference } from '@/hooks/usePurchaseOrders';
 import { useCreateTrip, useAdvanceStage } from '@/hooks/useTrips';
 import { useVehicleDetection } from '@/hooks/Usevehicledetection';
+import { useVehicleByRegistration } from '@/hooks/useVehicleRegistration';
 import { TripCreate, StageUpdate } from '@/api/types/trip.types';
 import {
   Car,
@@ -48,6 +49,9 @@ import {
   Wifi,
   AlertCircle,
   Download,
+  ShieldCheck,
+  Clock,
+  Ban,
 } from 'lucide-react';
 
 export default function SecurityDashboard() {
@@ -75,6 +79,13 @@ export default function SecurityDashboard() {
     reconnectInterval: 3000,
   });
 
+  // Check if detected vehicle is already registered
+  const {
+    data: existingVehicle,
+    isLoading: vehicleCheckLoading,
+    isError: vehicleCheckError,
+  } = useVehicleByRegistration(detectionData?.plate);
+
   const isReferenceId = /^PO[-_\s]?\d+$/i.test(poSearch.trim());
   const {
     data: poData,
@@ -83,6 +94,16 @@ export default function SecurityDashboard() {
   } = usePurchaseOrderByReference(
     isReferenceId ? poSearch.trim() : undefined
   );
+
+  // Determine vehicle registration status
+  const getVehicleStatus = () => {
+    if (!detectionData?.plate) return null;
+    if (vehicleCheckLoading) return 'checking';
+    if (vehicleCheckError || !existingVehicle) return 'not_registered';
+    return existingVehicle.approval_status; // 'Pending', 'Approved', 'Rejected'
+  };
+
+  const vehicleStatus = getVehicleStatus();
 
   const pendingDrivers = drivers?.filter(d => d.approval_status === 'Pending') || [];
   const pendingVehicles = data?.pendingVehicles || [];
@@ -271,9 +292,9 @@ export default function SecurityDashboard() {
 
       {/* Top Row - Vehicle Image & PO Verification */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Live Vehicle Detection Card */}
+        {/* Live Vehicle Detection Card - L-Shape Layout */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
@@ -290,39 +311,101 @@ export default function SecurityDashboard() {
             <CardDescription>Real-time plate recognition from camera</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Vehicle Image */}
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden relative">
-              {detectionData?.image ? (
-                <img 
-                  src={`data:image/jpeg;base64,${detectionData.image}`} 
-                  alt="Detected Vehicle"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Waiting for detection...</p>
-                  <p className="text-sm">Camera feed will appear here</p>
+            {/* L-Shape Layout: Image left, Details right */}
+            <div className="flex gap-4">
+              {/* Left side - Vehicle Image (larger) */}
+              <div className="w-2/3 aspect-[4/3] bg-muted rounded-lg flex items-center justify-center overflow-hidden relative">
+                {detectionData?.image ? (
+                  <img 
+                    src={`data:image/jpeg;base64,${detectionData.image}`} 
+                    alt="Detected Vehicle"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Waiting for detection...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right side - Detection Details */}
+              <div className="w-1/3 flex flex-col gap-3">
+                {/* Registration Status Badge */}
+                <div className="p-3 rounded-lg bg-muted/50 border">
+                  <p className="text-xs text-muted-foreground mb-1">Status</p>
+                  {vehicleStatus === 'checking' ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm">Checking...</span>
+                    </div>
+                  ) : vehicleStatus === 'Approved' ? (
+                    <Badge className="bg-green-500 hover:bg-green-600 gap-1">
+                      <ShieldCheck className="h-3 w-3" />
+                      Registered
+                    </Badge>
+                  ) : vehicleStatus === 'Pending' ? (
+                    <Badge variant="secondary" className="gap-1">
+                      <Clock className="h-3 w-3" />
+                      Pending
+                    </Badge>
+                  ) : vehicleStatus === 'Rejected' ? (
+                    <Badge variant="destructive" className="gap-1">
+                      <Ban className="h-3 w-3" />
+                      Rejected
+                    </Badge>
+                  ) : vehicleStatus === 'not_registered' ? (
+                    <Badge variant="outline" className="gap-1 text-orange-600 border-orange-300">
+                      <AlertCircle className="h-3 w-3" />
+                      Not Registered
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
                 </div>
-              )}
+
+                {/* Plate Number */}
+                <div className="p-3 rounded-lg bg-muted/50 border flex-1">
+                  <p className="text-xs text-muted-foreground mb-1">Plate</p>
+                  <p className="font-bold font-mono text-lg text-primary truncate">
+                    {detectionData?.plate || '—'}
+                  </p>
+                </div>
+
+                {/* Vehicle Type */}
+                <div className="p-3 rounded-lg bg-muted/50 border">
+                  <p className="text-xs text-muted-foreground mb-1">Type</p>
+                  <p className="text-sm font-medium truncate">
+                    {detectionData?.vehicle || '—'}
+                  </p>
+                </div>
+
+                {/* FASTag */}
+                <div className="p-3 rounded-lg bg-muted/50 border">
+                  <p className="text-xs text-muted-foreground mb-1">FASTag</p>
+                  <p className="text-sm font-medium truncate">
+                    {detectionData?.fastag || '—'}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Detection Info */}
-            {detectionData && (
-              <div className="space-y-2 p-4 bg-muted rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Plate Number:</span>
-                  <span className="text-lg font-bold font-mono text-green-600">
-                    {detectionData.plate}
-                  </span>
+            {/* Approved Vehicle Details (shown when vehicle is registered) */}
+            {vehicleStatus === 'Approved' && existingVehicle && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-green-900 text-sm">Vehicle Registered & Verified</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Vehicle Type:</span>
-                  <span className="text-sm">{detectionData.vehicle}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">FASTag:</span>
-                  <span className="text-sm">{detectionData.fastag}</span>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-green-700">Tare Weight:</span>{' '}
+                    <span className="font-medium">{existingVehicle.manufacturer_tare_weight?.toLocaleString()} kg</span>
+                  </div>
+                  <div>
+                    <span className="text-green-700">Type:</span>{' '}
+                    <span className="font-medium">{existingVehicle.vehicle_type}</span>
+                  </div>
                 </div>
               </div>
             )}
