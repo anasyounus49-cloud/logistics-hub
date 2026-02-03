@@ -41,7 +41,12 @@ export const vehicleService = {
       console.log('Making POST request to:', ENDPOINTS.VEHICLES.LIST);
       
       try {
-        const response = await apiClient.post<VehicleOut>(ENDPOINTS.VEHICLES.LIST, data);
+        // Explicitly set Content-Type header for FormData
+        const response = await apiClient.post<VehicleOut>(ENDPOINTS.VEHICLES.LIST, data, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         console.log('Response received:', response.data);
         return response.data;
       } catch (error: any) {

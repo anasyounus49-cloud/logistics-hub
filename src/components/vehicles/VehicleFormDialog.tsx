@@ -24,7 +24,7 @@ import { VehicleCreate } from '@/api/types/vehicle.types';
 import { Plus } from 'lucide-react';
 
 interface VehicleFormDialogProps {
-  onSubmit: (data: VehicleCreate) => Promise<boolean>;
+  onSubmit: (data: VehicleCreate | FormData) => Promise<any>;
 }
 
 export const VehicleFormDialog = ({ onSubmit }: VehicleFormDialogProps) => {
@@ -44,12 +44,15 @@ export const VehicleFormDialog = ({ onSubmit }: VehicleFormDialogProps) => {
 
   const handleFormSubmit = async (data: VehicleCreate) => {
     setLoading(true);
-    const success = await onSubmit(data);
-    setLoading(false);
-
-    if (success) {
+    try {
+      await onSubmit(data);
       reset();
       setOpen(false);
+    } catch (error) {
+      // Error is handled by the hook
+      console.error('Vehicle creation failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
