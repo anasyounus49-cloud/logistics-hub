@@ -213,11 +213,12 @@ export function CombinedRegistrationDialog({
           formData.append('vehicle_type', values.vehicle_type);
           formData.append('manufacturer_tare_weight', values.manufacturer_tare_weight.toString());
 
-          // Add fastag_number if provided (map from fastag_id)
-          if (values.fastag_id && values.fastag_id.trim() !== '') {
-            formData.append('fastag_number', values.fastag_id.trim());
+          // Add fastag_number if provided (map from fastag_id), filter out websocket placeholder
+          const fastag = values.fastag_id?.trim();
+          if (fastag && fastag.toLowerCase() !== 'no fastag') {
+            formData.append('fastag_number', fastag);
           }
-
+          
           // Convert base64 image to File and append
           if (capturedImage) {
             try {
