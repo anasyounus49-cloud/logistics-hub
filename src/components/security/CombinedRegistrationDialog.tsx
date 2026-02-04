@@ -69,17 +69,17 @@ interface DetectedVehicleData {
 }
 
 interface CombinedRegistrationDialogProps {
-  onSuccess?: () => void;
+  onSuccess?: (data: { vehicleId?: number; driverId?: number; driverPhone?: string }) => void;
   trigger?: React.ReactNode;
   detectedData?: DetectedVehicleData;
-  onLoadDetection?: () => void;
+  autoLoadDetection?: boolean; // when true, form auto-populates on new detection
 }
 
 export function CombinedRegistrationDialog({ 
   onSuccess,
   trigger,
   detectedData,
-  onLoadDetection 
+  autoLoadDetection = false,
 }: CombinedRegistrationDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,55 +103,29 @@ export function CombinedRegistrationDialog({
     },
   });
 
-  // Update captured image automatically when new detection arrives
+  // ─── Auto-populate form whenever detectedData changes ───
   useEffect(() => {
-    if (detectedData?.vehicleImage) {
-      setCapturedImage(`data:image/jpeg;base64,${detectedData.vehicleImage}`);
-    }
-  }, [detectedData?.vehicleImage]);
+    if (!detectedData) return;
 
-  // Load detection data into form
-  const loadDetectionIntoForm = () => {
-    if (!detectedData) {
-      toast({
-        title: 'No Detection Available',
-        description: 'Please wait for vehicle detection from camera.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (detectedData.registrationNumber) {
-      form.setValue('registration_number', detectedData.registrationNumber.toUpperCase());
-    }
-
-    if (detectedData.fastagId) {
-      form.setValue('fastag_id', detectedData.fastagId);
-    }
-
-    if (detectedData.vehicleType) {
-      form.setValue('vehicle_type', detectedData.vehicleType);
-    }
-
+    // Update image always (even if dialog is closed)
     if (detectedData.vehicleImage) {
       setCapturedImage(`data:image/jpeg;base64,${detectedData.vehicleImage}`);
     }
 
-    setLastLoadedDetection(detectedData);
-    setSubmitError(null);
-
-    toast({
-      title: 'Detection Loaded',
-      description: 'Form has been populated with detected vehicle information.',
-    });
-  };
-
-  // Expose load function to parent
-  useEffect(() => {
-    if (onLoadDetection) {
-      (window as any).__loadDetectionIntoForm = loadDetectionIntoForm;
+    // Only write into form fields when autoLoadDetection is enabled
+    if (autoLoadDetection) {
+      if (detectedData.registrationNumber) {
+        form.setValue('registration_number', detectedData.registrationNumber.toUpperCase());
+      }
+      if (detectedData.fastagId) {
+        form.setValue('fastag_id', detectedData.fastagId);
+      }
+      if (detectedData.vehicleType) {
+        form.setValue('vehicle_type', detectedData.vehicleType);
+      }
+      setLastLoadedDetection(detectedData);
     }
-  }, [detectedData, onLoadDetection]);
+  }, [detectedData, autoLoadDetection]);
 
   // Helper function to convert base64 to File with datetime filename
   const base64ToFile = async (base64String: string): Promise<File> => {
@@ -173,6 +147,8 @@ export function CombinedRegistrationDialog({
       let vehicleSuccess = false;
       let driverSuccess = false;
       let usedExistingVehicleStatus: string | null = null;
+      let vehicleId: number | undefined = undefined;
+      let driverId: number | undefined = undefined;
 
       // Create vehicle with FormData for image upload
       try {
@@ -192,6 +168,7 @@ export function CombinedRegistrationDialog({
 
         if (existingVehicle) {
           usedExistingVehicleStatus = existingVehicle.approval_status;
+          vehicleId = existingVehicle.id;
 
           // If rejected, don't allow a "silent" pass (trip creation should not proceed with rejected vehicles)
           if (existingVehicle.approval_status === 'Rejected') {
@@ -240,6 +217,7 @@ export function CombinedRegistrationDialog({
           try {
             const vehicleResult = await createVehicle(formData);
             vehicleSuccess = true;
+            vehicleId = vehicleResult.id;
             console.log('Vehicle created successfully:', vehicleResult);
           } catch (createErr: any) {
             // Fallback for race-condition duplicates: if backend says already exists, fetch and proceed
@@ -249,6 +227,7 @@ export function CombinedRegistrationDialog({
             if (createErr?.response?.status === 400 && detailText.toLowerCase().includes('already exists')) {
               const fetched = await vehicleService.getByRegistration(regNo);
               usedExistingVehicleStatus = fetched.approval_status;
+              vehicleId = fetched.id;
 
               if (fetched.approval_status === 'Rejected') {
                 throw new Error('Vehicle is Rejected. Please contact an admin or re-verify the vehicle before proceeding.');
@@ -285,8 +264,9 @@ export function CombinedRegistrationDialog({
           aadhaar: values.aadhaar.trim(),
         };
         
-        await createDriver.mutateAsync(driverPayload);
+        const driverResult = await createDriver.mutateAsync(driverPayload);
         driverSuccess = true;
+        driverId = driverResult.id;
         console.log('Driver created successfully');
       } catch (driverError: any) {
         console.error('Driver creation failed:', driverError);
@@ -300,12 +280,12 @@ export function CombinedRegistrationDialog({
         throw new Error(`Driver registration failed: ${errorMessage}`);
       }
 
-        if (vehicleSuccess && driverSuccess) {
+      if (vehicleSuccess && driverSuccess) {
         toast({
           title: 'Registration Successful',
-            description: usedExistingVehicleStatus
-              ? `Driver registered successfully. Vehicle already exists (Status: ${usedExistingVehicleStatus}).`
-              : 'Both vehicle and driver have been registered and are pending approval.',
+          description: usedExistingVehicleStatus
+            ? `Driver registered successfully. Vehicle already exists (Status: ${usedExistingVehicleStatus}).`
+            : 'Both vehicle and driver have been registered and are pending approval.',
         });
         
         // Clear everything after successful registration
@@ -314,7 +294,13 @@ export function CombinedRegistrationDialog({
         setCapturedImage(null);
         setLastLoadedDetection(null);
         setSubmitError(null);
-        onSuccess?.();
+        
+        // Call onSuccess with the IDs
+        onSuccess?.({
+          vehicleId,
+          driverId,
+          driverPhone: values.mobile_number.trim(),
+        });
       }
     } catch (error: any) {
       console.error('Registration error:', error);

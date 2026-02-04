@@ -19,11 +19,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { useSecurityStats } from '@/hooks/useDashboardStats';
 import { useVehicles } from '@/hooks/useVehicles';
-import { useDrivers } from '@/hooks/useDrivers';
+import { useDrivers, useDriver } from '@/hooks/useDrivers';
 import { CombinedRegistrationDialog } from '@/components/security/CombinedRegistrationDialog';
+import { DriverSelectionDialog } from '@/components/security/DriverSelectionDialog';
 import { usePurchaseOrderByReference } from '@/hooks/usePurchaseOrders';
 import { useCreateTrip, useAdvanceStage } from '@/hooks/useTrips';
 import { useVehicleDetection } from '@/hooks/Usevehicledetection';
@@ -48,10 +54,13 @@ import {
   WifiOff,
   Wifi,
   AlertCircle,
-  Download,
   ShieldCheck,
   Clock,
   Ban,
+  Plus,
+  ScanLine,
+  HelpCircle,
+  UserCircle,
 } from 'lucide-react';
 
 export default function SecurityDashboard() {
@@ -59,12 +68,21 @@ export default function SecurityDashboard() {
   const [tripDialogOpen, setTripDialogOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  const [driverSelectionDialogOpen, setDriverSelectionDialogOpen] = useState(false);
+  const [selectedDriverPhone, setSelectedDriverPhone] = useState<string>('');
+  
+  // Track newly registered driver info
+  const [newlyRegisteredDriverId, setNewlyRegisteredDriverId] = useState<number | null>(null);
+  const [newlyRegisteredDriverPhone, setNewlyRegisteredDriverPhone] = useState<string | null>(null);
   
   const { isLoading, stats, data, refetch } = useSecurityStats();
   const { vehicles, fetchVehicles } = useVehicles();
   const { data: drivers, isLoading: driversLoading, refetch: refetchDrivers } = useDrivers();
   const createTripMutation = useCreateTrip();
   const advanceStageMutation = useAdvanceStage();
+
+  // Fetch selected driver details
+  const { data: selectedDriver } = useDriver(selectedDriverId ? parseInt(selectedDriverId) : 0);
 
   // WebSocket for live vehicle detection
   const {
@@ -84,6 +102,7 @@ export default function SecurityDashboard() {
     data: existingVehicle,
     isLoading: vehicleCheckLoading,
     isError: vehicleCheckError,
+    refetch: refetchVehicleStatus,
   } = useVehicleByRegistration(detectionData?.plate);
 
   const isReferenceId = /^PO[-_\s]?\d+$/i.test(poSearch.trim());
@@ -112,28 +131,44 @@ export default function SecurityDashboard() {
   const approvedVehicles = vehicles?.filter((v) => v.approval_status === 'Approved') || [];
   const approvedDrivers = drivers?.filter((d) => d.approval_status === 'Approved') || [];
 
+  // Auto-fill vehicle when detected and approved
+  useEffect(() => {
+    if (tripDialogOpen && existingVehicle && vehicleStatus === 'Approved') {
+      setSelectedVehicleId(existingVehicle.id.toString());
+    }
+  }, [tripDialogOpen, existingVehicle, vehicleStatus]);
+
+  // Auto-fill driver based on newly registered or phone search
+  useEffect(() => {
+    if (!tripDialogOpen) return;
+
+    // Priority 1: Use newly registered driver ID
+    if (newlyRegisteredDriverId) {
+      const driver = approvedDrivers.find(d => d.id === newlyRegisteredDriverId);
+      if (driver) {
+        setSelectedDriverId(driver.id.toString());
+        return;
+      }
+    }
+
+    // Priority 2: Search by phone number
+    if (newlyRegisteredDriverPhone) {
+      const driver = approvedDrivers.find(d => d.mobile_number === newlyRegisteredDriverPhone);
+      if (driver) {
+        setSelectedDriverId(driver.id.toString());
+        return;
+      }
+    }
+  }, [tripDialogOpen, newlyRegisteredDriverId, newlyRegisteredDriverPhone, approvedDrivers]);
+
   const handleRefreshAll = () => {
     refetch();
     refetchDrivers();
     fetchVehicles();
   };
 
-  // Function to load detection into registration form
-  const handleLoadDetection = () => {
-    if (!detectionData) {
-      return;
-    }
-    
-    // Call the exposed function from CombinedRegistrationDialog
-    if ((window as any).__loadDetectionIntoForm) {
-      (window as any).__loadDetectionIntoForm();
-    }
-  };
-
   const handleOpenTripDialog = () => {
     if (!poData) return;
-    setSelectedVehicleId('');
-    setSelectedDriverId('');
     setTripDialogOpen(true);
   };
 
@@ -168,10 +203,36 @@ export default function SecurityDashboard() {
       setSelectedVehicleId('');
       setSelectedDriverId('');
       setPoSearch('');
+      setNewlyRegisteredDriverId(null);
+      setNewlyRegisteredDriverPhone(null);
       clearDetection();
     } catch (error) {
       console.error('Error creating trip:', error);
     }
+  };
+
+  const handleRegistrationSuccess = (data: { vehicleId?: number; driverId?: number; driverPhone?: string }) => {
+    // Store driver info for auto-fill
+    if (data.driverId) {
+      setNewlyRegisteredDriverId(data.driverId);
+      setSelectedDriverId(data.driverId.toString());
+    }
+    if (data.driverPhone) {
+      setNewlyRegisteredDriverPhone(data.driverPhone);
+      setSelectedDriverPhone(data.driverPhone);
+    }
+
+    // Refresh data
+    fetchVehicles();
+    refetchDrivers();
+    refetch();
+  };
+
+  const handleDriverSelected = (driverId: number, driverPhone: string) => {
+    setSelectedDriverId(driverId.toString());
+    setSelectedDriverPhone(driverPhone);
+    setNewlyRegisteredDriverId(driverId);
+    setNewlyRegisteredDriverPhone(driverPhone);
   };
 
   const handleViewAllVehicles = () => {
@@ -290,9 +351,9 @@ export default function SecurityDashboard() {
         )}
       </div>
 
-      {/* Top Row - Vehicle Image & PO Verification */}
+      {/* Top Row - Vehicle Detection & PO Verification + Register Button */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Live Vehicle Detection Card - L-Shape Layout */}
+        {/* Live Vehicle Detection Card */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -333,7 +394,66 @@ export default function SecurityDashboard() {
               <div className="w-1/3 flex flex-col gap-3">
                 {/* Registration Status Badge */}
                 <div className="p-3 rounded-lg bg-muted/50 border">
-                  <p className="text-xs text-muted-foreground mb-1">Status</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <div className="flex items-center gap-1">
+                      {/* Reload button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => {
+                          if (detectionData?.plate) {
+                            // Refetch the specific vehicle registration status
+                            refetchVehicleStatus();
+                          }
+                        }}
+                        disabled={!detectionData?.plate || vehicleCheckLoading}
+                        title="Refresh vehicle status"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${vehicleCheckLoading ? 'animate-spin' : ''}`} />
+                      </Button>
+                      
+                      {/* Help popover */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0"
+                          >
+                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 text-xs" align="end">
+                          <div className="space-y-2">
+                            <p className="font-semibold">Vehicle Status Guide:</p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-start gap-2">
+                                <ShieldCheck className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>Registered:</strong> Vehicle is approved and ready for trips</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <Clock className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>Pending:</strong> Awaiting admin approval</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <Ban className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>Rejected:</strong> Contact admin to resolve</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="h-3 w-3 text-orange-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>Not Registered:</strong> Vehicle needs registration</span>
+                              </div>
+                            </div>
+                            <p className="text-muted-foreground pt-1">
+                              Click the reload icon to refresh the status.
+                            </p>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
                   {vehicleStatus === 'checking' ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -412,129 +532,248 @@ export default function SecurityDashboard() {
           </CardContent>
         </Card>
 
-        {/* PO Verification Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileSearch className="h-5 w-5" />
-              PO Verification
-            </CardTitle>
-            <CardDescription>Verify purchase order before vehicle entry</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter PO reference (e.g., PO-1234)"
-                value={poSearch}
-                onChange={(e) => setPoSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && isReferenceId && !poLoading) {
-                    e.preventDefault();
-                  }
-                }}
-              />
-              <Button disabled={!isReferenceId || poLoading}>
-                {poLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-
-            {/* PO Result */}
-            {poLoading && (
-              <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg text-center">
-                <p className="text-sm text-blue-700">Verifying PO… ⏳</p>
-                <Skeleton className="h-4 w-full mt-2" />
-              </div>
-            )}
-
-            {poError && (
-              <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-red-900">Invalid PO</p>
-                    <p className="text-sm text-red-700">
-                      No active purchase order found for this reference
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {poData && (
-              <div className="p-4 border border-green-200 bg-green-50 rounded-lg space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-green-900">✓ PO Verified</p>
-                    <p className="text-sm font-mono text-green-800">{poData.po_reference_number}</p>
-                    <p className="text-sm text-green-700 mt-1">
-                      Seller: {poData.seller_name}, Valid Until: {poData.validity_end_date}
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleOpenTripDialog} 
-                  className="w-full" 
-                  size="sm"
-                  disabled={isCreatingTrip}
-                >
-                  {isCreatingTrip ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating Trip...
-                    </>
+        {/* Right Column: PO Verification + Register button stacked */}
+        <div className="flex flex-col gap-4">
+          {/* PO Verification Card */}
+          <Card className="flex-1">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSearch className="h-5 w-5" />
+                PO Verification
+              </CardTitle>
+              <CardDescription>Verify purchase order before vehicle entry</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter PO reference (e.g., PO-1234)"
+                  value={poSearch}
+                  onChange={(e) => setPoSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && isReferenceId && !poLoading) {
+                      e.preventDefault();
+                    }
+                  }}
+                />
+                <Button disabled={!isReferenceId || poLoading}>
+                  {poLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    'Create Trip'
+                    <Search className="h-4 w-4" />
                   )}
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Register Vehicle & Driver - Full Width */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3">
-            {/* Registration Dialog with detection data */}
-            <div className="flex-1">
-              <CombinedRegistrationDialog 
-                detectedData={detectionData ? {
+              {/* PO Result */}
+              {poLoading && (
+                <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg text-center">
+                  <p className="text-sm text-blue-700">Verifying PO… ⏳</p>
+                  <Skeleton className="h-4 w-full mt-2" />
+                </div>
+              )}
+
+              {poError && (
+                <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-900">Invalid PO</p>
+                      <p className="text-sm text-red-700">
+                        No active purchase order found for this reference
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {poData && (
+                <div className="p-4 border border-green-200 bg-green-50 rounded-lg space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-green-900">✓ PO Verified</p>
+                      <p className="text-sm font-mono text-green-800">{poData.po_reference_number}</p>
+                      <p className="text-sm text-green-700 mt-1">
+                        Seller: {poData.seller_name}, Valid Until: {poData.validity_end_date}
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleOpenTripDialog} 
+                    className="w-full" 
+                    size="sm"
+                    disabled={isCreatingTrip}
+                  >
+                    {isCreatingTrip ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating Trip...
+                      </>
+                    ) : (
+                      'Create Trip'
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Driver Selection Card - Only show when vehicle is approved */}
+          {vehicleStatus === 'Approved' && existingVehicle && (
+            <Card className="flex-shrink-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCircle className="h-5 w-5" />
+                  Driver Selection
+                </CardTitle>
+                <CardDescription>Select or register a driver for this trip</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Select Driver Button */}
+                <Button
+                  onClick={() => setDriverSelectionDialogOpen(true)}
+                  className="w-full gap-2"
+                  variant="outline"
+                >
+                  <UserCircle className="h-4 w-4" />
+                  {selectedDriverId ? 'Change Driver' : 'Select Driver'}
+                </Button>
+
+                {/* Show selected driver info */}
+                {selectedDriverId && selectedDriver && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium text-blue-900 text-sm">Driver Selected</span>
+                    </div>
+                    <p className="text-sm font-medium text-blue-900">{selectedDriver.driver_name}</p>
+                    <p className="text-xs text-blue-700">
+                      📱 {selectedDriver.mobile_number} • Status: {selectedDriver.approval_status}
+                    </p>
+                  </div>
+                )}
+
+                {!selectedDriverId && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No driver selected yet
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Vehicle Registration Status Card - Always visible with empty state */}
+          <div
+            className={`rounded-lg border p-4 space-y-3 transition-colors ${
+              !detectionData?.plate
+                ? 'bg-slate-50 border-slate-200' // Empty/waiting state
+                : vehicleStatus === 'Approved'
+                  ? 'bg-green-50 border-green-300'
+                  : vehicleStatus === 'Pending'
+                    ? 'bg-amber-50 border-amber-300'
+                    : 'bg-red-50 border-red-300' // not_registered | Rejected | checking fallback
+            }`}
+          >
+            {/* Status header row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {!detectionData?.plate ? (
+                  // Empty state - waiting for detection
+                  <>
+                    <ScanLine className="h-5 w-5 text-slate-500 animate-pulse" />
+                    <span className="font-semibold text-sm text-slate-600">Waiting for Vehicle...</span>
+                  </>
+                ) : vehicleStatus === 'checking' ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="font-semibold text-sm text-muted-foreground">Checking vehicle…</span>
+                  </>
+                ) : vehicleStatus === 'Approved' ? (
+                  <>
+                    <ShieldCheck className="h-5 w-5 text-green-600" />
+                    <span className="font-semibold text-sm text-green-800">Vehicle is Registered</span>
+                  </>
+                ) : vehicleStatus === 'Pending' ? (
+                  <>
+                    <Clock className="h-5 w-5 text-amber-600" />
+                    <span className="font-semibold text-sm text-amber-800">Registration Pending</span>
+                  </>
+                ) : vehicleStatus === 'Rejected' ? (
+                  <>
+                    <Ban className="h-5 w-5 text-red-600" />
+                    <span className="font-semibold text-sm text-red-800">Vehicle is Rejected</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                    <span className="font-semibold text-sm text-red-800">Vehicle is Not Registered</span>
+                  </>
+                )}
+              </div>
+
+              {/* Plate badge - only show when detected */}
+              {detectionData?.plate && (
+                <Badge
+                  variant="outline"
+                  className={`font-mono text-sm ${
+                    vehicleStatus === 'Approved'
+                      ? 'border-green-400 text-green-800 bg-green-100'
+                      : vehicleStatus === 'Pending'
+                        ? 'border-amber-400 text-amber-800 bg-amber-100'
+                        : 'border-red-400 text-red-800 bg-red-100'
+                  }`}
+                >
+                  {detectionData.plate}
+                </Badge>
+              )}
+            </div>
+
+            {/* Description text */}
+            <p className={`text-xs ${
+              !detectionData?.plate
+                ? 'text-slate-600'
+                : vehicleStatus === 'Approved'
+                  ? 'text-green-700'
+                  : vehicleStatus === 'Pending'
+                    ? 'text-amber-700'
+                    : 'text-red-700'
+            }`}>
+              {!detectionData?.plate
+                ? 'Detection system is active and monitoring. Vehicle details will appear here once detected by the camera.'
+                : vehicleStatus === 'Approved'
+                  ? 'This vehicle is verified and ready for trip creation.'
+                  : vehicleStatus === 'Pending'
+                    ? 'This vehicle is awaiting admin approval.'
+                    : vehicleStatus === 'Rejected'
+                      ? 'This vehicle has been rejected. Contact an admin to re-verify.'
+                      : 'This vehicle is not registered. Register it before creating a trip.'}
+            </p>
+
+            {/* Register button — only when not_registered or Rejected */}
+            {detectionData?.plate && (vehicleStatus === 'not_registered' || vehicleStatus === 'Rejected') && (
+              <CombinedRegistrationDialog
+                detectedData={{
                   registrationNumber: detectionData.plate,
                   fastagId: detectionData.fastag,
                   vehicleType: detectionData.vehicle,
                   vehicleImage: detectionData.image,
-                } : undefined}
-                onLoadDetection={handleLoadDetection}
+                }}
+                autoLoadDetection={true}
+                onSuccess={handleRegistrationSuccess}
+                trigger={
+                  <Button
+                    className="w-full gap-2 bg-red-600 hover:bg-red-700 text-white"
+                    disabled={vehicleStatus === 'Rejected'}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Register Vehicle & Driver
+                  </Button>
+                }
               />
-            </div>
-            
-            {/* Reload Detection Button */}
-            <Button
-              onClick={handleLoadDetection}
-              variant="outline"
-              size="default"
-              disabled={!detectionData}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Load Detection
-            </Button>
+            )}
           </div>
-          
-          {/* Helper text */}
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            {detectionData 
-              ? "Click 'Load Detection' to populate form with detected vehicle data" 
-              : "Waiting for vehicle detection..."}
-          </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Bottom Row - Pending Approvals */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -754,6 +993,13 @@ export default function SecurityDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Driver Selection Dialog */}
+      <DriverSelectionDialog
+        open={driverSelectionDialogOpen}
+        onOpenChange={setDriverSelectionDialogOpen}
+        onDriverSelected={handleDriverSelected}
+      />
     </div>
   );
 }
